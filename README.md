@@ -1,4 +1,4 @@
-# ⚡ RecargasVoltio
+# ⚡ RecargasVE
 
 Aplicación web sencilla para llevar el control de vehículos eléctricos pendientes de cargar durante el turno de noche.
 
