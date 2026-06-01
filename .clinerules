@@ -1,0 +1,51 @@
+# Proyecto App Recargas VE
+
+## Contexto
+Esta aplicación es para uso laboral personal. Sirve para guardar vehículos eléctricos pendientes de cargar durante el turno de noche.
+
+Cada registro debe incluir:
+- matrícula
+- enlace de Google Maps
+- estado: pendiente, cargando, cargado o incidencia
+- notas opcionales
+- fecha de creación y actualización
+
+## Stack actual
+- Node.js
+- Express
+- HTML, CSS y JavaScript vanilla
+- Datos guardados en `data/vehiculos.json`
+- Frontend dentro de `public/`
+
+## Reglas generales
+- No añadir dependencias npm sin pedir confirmación.
+- Mantener la app sencilla y fácil de entender.
+- Priorizar código seguro y mantenible.
+- Hacer cambios pequeños y verificables.
+- No reescribir todo el proyecto si solo se pide una mejora concreta.
+
+## Seguridad
+- Validar siempre los datos recibidos en el servidor.
+- Limitar tamaños de texto.
+- No confiar en datos del usuario.
+- No insertar datos del usuario con `innerHTML` sin escaparlos antes.
+- Usar `encodeURIComponent()` en rutas dinámicas del frontend.
+- Mantener `rel="noopener noreferrer"` en enlaces externos.
+- No guardar datos sensibles innecesarios.
+
+## Estilo
+- Diseño responsive para móvil.
+- Interfaz clara para usar de noche.
+- Botones grandes y fáciles de pulsar.
+- Código comentado solo cuando aporte claridad.
+
+## Flujo de trabajo
+Antes de modificar:
+1. Explicar brevemente qué archivos se van a tocar.
+2. Hacer la mínima modificación necesaria.
+3. Mantener funcionando las rutas existentes:
+   - GET `/api/vehiculos`
+   - POST `/api/vehiculos`
+   - PATCH `/api/vehiculos/:id`
+   - DELETE `/api/vehiculos/:id`
+4. Indicar cómo probar el cambio.

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App Recargas</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Recargas VE</h1>
+
+    <form id="vehicleForm" class="card">
+      <input id="matricula" type="text" placeholder="Matrícula" maxlength="20" required />
+      <input id="mapsUrl" type="url" placeholder="Enlace de Google Maps" required />
+      <textarea id="notas" placeholder="Notas"></textarea>
+      <button type="submit">Añadir vehículo</button>
+    </form>
+
+    <section>
+      <h2>Vehículos</h2>
+      <div id="vehicleList" class="vehicle-list"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

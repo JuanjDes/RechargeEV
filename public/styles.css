@@ -1,0 +1,141 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, Arial, sans-serif;
+  background: #111827;
+  color: #f9fafb;
+}
+
+.container {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1,
+h2 {
+  margin-bottom: 12px;
+}
+
+.card,
+.vehicle-card {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+form {
+  display: grid;
+  gap: 12px;
+}
+
+input,
+textarea,
+button {
+  width: 100%;
+  font: inherit;
+  border-radius: 10px;
+  border: none;
+  padding: 12px;
+}
+
+input,
+textarea {
+  background: #f9fafb;
+  color: #111827;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+button {
+  cursor: pointer;
+  background: #22c55e;
+  color: #052e16;
+  font-weight: 700;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+.vehicle-list {
+  display: grid;
+  gap: 12px;
+}
+
+.vehicle-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+}
+
+.estado {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.pendiente {
+  background: #facc15;
+  color: #422006;
+}
+
+.cargando {
+  background: #38bdf8;
+  color: #082f49;
+}
+
+.cargado {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.incidencia {
+  background: #ef4444;
+  color: #450a0a;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.actions a,
+.actions button {
+  text-align: center;
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-weight: 700;
+}
+
+.actions a {
+  background: #3b82f6;
+  color: white;
+}
+
+.delete {
+  background: #ef4444;
+  color: white;
+}
+
+.empty {
+  color: #9ca3af;
+}
+
+@media (max-width: 520px) {
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}
