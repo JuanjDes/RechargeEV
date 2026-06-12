@@ -44,3 +44,5 @@ Antes de modificar:
 2. Hacer la mínima modificación necesaria.
 3. Mantener la persistencia sólo en `localStorage`, salvo petición explícita.
 4. Indicar cómo probar el cambio.
+5. Cuando edites código, modifica un solo archivo por paso salvo que se pida explícitamente lo contrario.
+6. Después de cada archivo, espera confirmación.

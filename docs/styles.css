@@ -20,6 +20,23 @@ h2 {
   margin-bottom: 12px;
 }
 
+.section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1f2937;
+  color: #f9fafb;
+  border: 1px solid #374151;
+}
+
+.section-toggle[aria-expanded="true"] .section-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.vehicle-list[hidden] {
+  display: none;
+}
+
 .card,
 .vehicle-card {
   background: #1f2937;

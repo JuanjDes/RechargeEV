@@ -18,8 +18,19 @@
     </form>
 
     <section>
-      <h2>Vehículos</h2>
-      <div id="vehicleList" class="vehicle-list"></div>
+      <h2>
+        <button
+          id="vehiclesToggle"
+          class="section-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="vehicleList"
+        >
+          <span>Vehículos (<span id="vehiclesCount">0</span>)</span>
+          <span class="section-toggle-icon" aria-hidden="true">▾</span>
+        </button>
+      </h2>
+      <div id="vehicleList" class="vehicle-list" hidden></div>
     </section>
   </main>
 

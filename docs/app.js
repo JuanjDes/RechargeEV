@@ -1,5 +1,7 @@
 const vehicleForm = document.getElementById("vehicleForm");
 const vehicleList = document.getElementById("vehicleList");
+const vehiclesToggle = document.getElementById("vehiclesToggle");
+const vehiclesCount = document.getElementById("vehiclesCount");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 
@@ -121,6 +123,7 @@ function escapeHtml(text) {
 }
 
 function renderVehicles(vehicles) {
+  vehiclesCount.textContent = vehicles.length;
   vehicleList.innerHTML = "";
 
   if (vehicles.length === 0) {
@@ -201,6 +204,13 @@ vehicleList.addEventListener("click", (event) => {
   } catch (error) {
     alert(error.message);
   }
+});
+
+vehiclesToggle.addEventListener("click", () => {
+  const isExpanded = vehiclesToggle.getAttribute("aria-expanded") === "true";
+
+  vehiclesToggle.setAttribute("aria-expanded", String(!isExpanded));
+  vehicleList.hidden = isExpanded;
 });
 
 loadVehicles();
