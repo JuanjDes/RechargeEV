@@ -88,17 +88,56 @@ button:hover {
   gap: 12px;
 }
 
+.vehicle-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .vehicle-card h3 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 1.4rem;
+}
+
+.vehicle-card p {
+  margin: 10px 0 0;
+  color: #d1d5db;
 }
 
 .estado {
   display: inline-block;
   padding: 4px 10px;
   border-radius: 999px;
-  margin-bottom: 10px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.vehicle-actions-dropdown {
+  margin-top: 12px;
+}
+
+.vehicle-actions-dropdown summary {
+  cursor: pointer;
+  list-style: none;
+  background: #374151;
+  color: #f9fafb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.vehicle-actions-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.vehicle-actions-dropdown summary::after {
+  content: " ▼";
+}
+
+.vehicle-actions-dropdown[open] summary::after {
+  content: " ▲";
 }
 
 .pendiente {

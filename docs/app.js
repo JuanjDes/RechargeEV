@@ -136,20 +136,26 @@ function renderVehicles(vehicles) {
     card.className = "vehicle-card";
 
     card.innerHTML = `
-      <h3>${escapeHtml(vehicle.matricula)}</h3>
-      <span class="estado ${escapeHtml(vehicle.estado)}">${escapeHtml(vehicle.estado)}</span>
+      <div class="vehicle-summary">
+        <h3>${escapeHtml(vehicle.matricula)}</h3>
+        <span class="estado ${escapeHtml(vehicle.estado)}">${escapeHtml(vehicle.estado)}</span>
+      </div>
       <p>${escapeHtml(vehicle.notas || "Sin notas")}</p>
 
-      <div class="actions">
-        <a href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">
-          Abrir Maps
-        </a>
+      <details class="vehicle-actions-dropdown">
+        <summary>Mostrar acciones</summary>
 
-        <button data-id="${vehicle.id}" data-estado="cargando">Cargando</button>
-        <button data-id="${vehicle.id}" data-estado="cargado">Cargado</button>
-        <button data-id="${vehicle.id}" data-estado="incidencia">Incidencia</button>
-        <button class="delete" data-id="${vehicle.id}" data-delete="true">Borrar</button>
-      </div>
+        <div class="actions">
+          <a href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">
+            Abrir Maps
+          </a>
+
+          <button data-id="${vehicle.id}" data-estado="cargando">Cargando</button>
+          <button data-id="${vehicle.id}" data-estado="cargado">Cargado</button>
+          <button data-id="${vehicle.id}" data-estado="incidencia">Incidencia</button>
+          <button class="delete" data-id="${vehicle.id}" data-delete="true">Borrar</button>
+        </div>
+      </details>
     `;
 
     vehicleList.appendChild(card);
