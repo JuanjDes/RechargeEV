@@ -83,6 +83,11 @@ button:hover {
   filter: brightness(1.08);
 }
 
+.secondary {
+  background: #6b7280;
+  color: #f9fafb;
+}
+
 .vehicle-list {
   display: grid;
   gap: 12px;
@@ -179,6 +184,11 @@ button:hover {
 .actions a {
   background: #3b82f6;
   color: white;
+}
+
+.edit {
+  background: #f97316;
+  color: #431407;
 }
 
 .delete {

@@ -2,8 +2,11 @@ const vehicleForm = document.getElementById("vehicleForm");
 const vehicleList = document.getElementById("vehicleList");
 const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
+const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
+const cancelEditButton = document.getElementById("cancelEditButton");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
+let editingVehicleId = null;
 
 function cleanText(value, maxLength = 300) {
   if (typeof value !== "string") return "";
@@ -33,6 +36,22 @@ function readVehicles() {
 
 function writeVehicles(vehicles) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles));
+}
+
+function findVehicleById(id) {
+  return readVehicles().find((item) => item.id === id);
+}
+
+function setFormMode(mode) {
+  const isEditing = mode === "edit";
+  vehicleSubmitButton.textContent = isEditing ? "Guardar cambios" : "Añadir vehículo";
+  cancelEditButton.hidden = !isEditing;
+}
+
+function resetVehicleForm() {
+  editingVehicleId = null;
+  vehicleForm.reset();
+  setFormMode("create");
 }
 
 function createVehicle(vehicle) {
@@ -86,11 +105,21 @@ function updateVehicle(id, data) {
   }
 
   if (data.matricula !== undefined) {
-    vehicle.matricula = cleanText(data.matricula, 20).toUpperCase();
+    const matricula = cleanText(data.matricula, 20).toUpperCase();
+
+    if (!matricula) {
+      throw new Error("La matrícula es obligatoria");
+    }
+
+    vehicle.matricula = matricula;
   }
 
   if (data.mapsUrl !== undefined) {
     const mapsUrl = cleanText(data.mapsUrl, 500);
+
+    if (!mapsUrl) {
+      throw new Error("El enlace de Google Maps es obligatorio");
+    }
 
     if (!mapsUrl.startsWith("https://")) {
       throw new Error("El enlace debe empezar por https://");
@@ -156,6 +185,7 @@ function renderVehicles(vehicles) {
           <button data-id="${vehicle.id}" data-estado="cargando">Cargando</button>
           <button data-id="${vehicle.id}" data-estado="cargado">Cargado</button>
           <button data-id="${vehicle.id}" data-estado="incidencia">Incidencia</button>
+          <button class="edit" data-id="${vehicle.id}" data-edit="true">Editar</button>
           <button class="delete" data-id="${vehicle.id}" data-delete="true">Borrar</button>
         </div>
       </details>
@@ -182,12 +212,21 @@ vehicleForm.addEventListener("submit", (event) => {
   const notas = document.getElementById("notas").value.trim();
 
   try {
-    createVehicle({ matricula, mapsUrl, notas });
-    vehicleForm.reset();
+    if (editingVehicleId) {
+      updateVehicle(editingVehicleId, { matricula, mapsUrl, notas });
+    } else {
+      createVehicle({ matricula, mapsUrl, notas });
+    }
+
+    resetVehicleForm();
     loadVehicles();
   } catch (error) {
     alert(error.message);
   }
+});
+
+cancelEditButton.addEventListener("click", () => {
+  resetVehicleForm();
 });
 
 vehicleList.addEventListener("click", (event) => {
@@ -198,6 +237,22 @@ vehicleList.addEventListener("click", (event) => {
   const id = button.dataset.id;
 
   try {
+    if (button.dataset.edit === "true") {
+      const vehicle = findVehicleById(id);
+
+      if (!vehicle) {
+        throw new Error("Vehículo no encontrado");
+      }
+
+      editingVehicleId = id;
+      document.getElementById("matricula").value = vehicle.matricula;
+      document.getElementById("mapsUrl").value = vehicle.mapsUrl;
+      document.getElementById("notas").value = vehicle.notas || "";
+      setFormMode("edit");
+      vehicleForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
     if (button.dataset.delete === "true") {
       const confirmDelete = confirm("¿Borrar este vehículo?");
       if (!confirmDelete) return;
