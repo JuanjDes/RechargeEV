@@ -83,9 +83,47 @@ button:hover {
   filter: brightness(1.08);
 }
 
+button:disabled {
+  cursor: wait;
+  filter: grayscale(0.35);
+  opacity: 0.75;
+}
+
 .secondary {
   background: #6b7280;
   color: #f9fafb;
+}
+
+.maps-analysis-card h2 {
+  margin-top: 0;
+}
+
+.analysis-result {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  background: #111827;
+  color: #d1d5db;
+  line-height: 1.4;
+}
+
+.analysis-result.success {
+  border-color: #22c55e;
+  background: #052e16;
+  color: #bbf7d0;
+}
+
+.analysis-result.error {
+  border-color: #ef4444;
+  background: #450a0a;
+  color: #fecaca;
+}
+
+.analysis-result.loading {
+  border-color: #38bdf8;
+  background: #082f49;
+  color: #bae6fd;
 }
 
 .vehicle-list {

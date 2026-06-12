@@ -1,10 +1,13 @@
-const vehicleForm = document.getElementById("vehicleForm");
+﻿const vehicleForm = document.getElementById("vehicleForm");
 const vehicleList = document.getElementById("vehicleList");
 const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
+const analyzeMapsUrlButton = document.getElementById("analyzeMapsUrlButton");
+const mapsUrlAnalysisResult = document.getElementById("mapsUrlAnalysisResult");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
+const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 let editingVehicleId = null;
 
@@ -151,6 +154,11 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function showMapsAnalysisResult(message, type = "info") {
+  mapsUrlAnalysisResult.className = `analysis-result ${type}`;
+  mapsUrlAnalysisResult.textContent = message;
+}
+
 function renderVehicles(vehicles) {
   vehiclesCount.textContent = vehicles.length;
   vehicleList.innerHTML = "";
@@ -227,6 +235,48 @@ vehicleForm.addEventListener("submit", (event) => {
 
 cancelEditButton.addEventListener("click", () => {
   resetVehicleForm();
+});
+
+analyzeMapsUrlButton.addEventListener("click", async () => {
+  const mapsUrl = document.getElementById("mapsUrl").value.trim();
+
+  if (!mapsUrl) {
+    showMapsAnalysisResult("Pega primero una URL de Google Maps en el formulario.", "error");
+    return;
+  }
+
+  analyzeMapsUrlButton.disabled = true;
+  showMapsAnalysisResult("Analizando URL... Render Free puede tardar unos segundos si estaba dormido.", "loading");
+
+  try {
+    const response = await fetch(MAPS_ANALYSIS_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url: mapsUrl }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "No se pudo analizar la URL");
+    }
+
+    if (!result.found || !result.coordinates) {
+      showMapsAnalysisResult(result.message || "No se encontraron coordenadas en la URL analizada.", "error");
+      return;
+    }
+
+    showMapsAnalysisResult(
+      `Coordenadas encontradas: Latitud ${result.coordinates.lat}, Longitud ${result.coordinates.lng}`,
+      "success"
+    );
+  } catch (error) {
+    showMapsAnalysisResult(error.message, "error");
+  } finally {
+    analyzeMapsUrlButton.disabled = false;
+  }
 });
 
 vehicleList.addEventListener("click", (event) => {
