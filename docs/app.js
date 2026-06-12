@@ -136,14 +136,17 @@ function renderVehicles(vehicles) {
     card.className = "vehicle-card";
 
     card.innerHTML = `
-      <div class="vehicle-summary">
-        <h3>${escapeHtml(vehicle.matricula)}</h3>
-        <span class="estado ${escapeHtml(vehicle.estado)}">${escapeHtml(vehicle.estado)}</span>
-      </div>
-      <p>${escapeHtml(vehicle.notas || "Sin notas")}</p>
-
       <details class="vehicle-actions-dropdown">
-        <summary>Mostrar acciones</summary>
+        <summary>
+          <div class="vehicle-summary">
+            <h3>${escapeHtml(vehicle.matricula)}</h3>
+            <span class="vehicle-status-toggle">
+              <span class="estado ${escapeHtml(vehicle.estado)}">${escapeHtml(vehicle.estado)}</span>
+              <span class="dropdown-arrow" aria-hidden="true">▼</span>
+            </span>
+          </div>
+          <p>${escapeHtml(vehicle.notas || "Sin notas")}</p>
+        </summary>
 
         <div class="actions">
           <a href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">

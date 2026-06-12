@@ -113,31 +113,31 @@ button:hover {
   white-space: nowrap;
 }
 
-.vehicle-actions-dropdown {
-  margin-top: 12px;
-}
-
 .vehicle-actions-dropdown summary {
   cursor: pointer;
   list-style: none;
-  background: #374151;
   color: #f9fafb;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-weight: 700;
-  text-align: center;
 }
 
 .vehicle-actions-dropdown summary::-webkit-details-marker {
   display: none;
 }
 
-.vehicle-actions-dropdown summary::after {
-  content: " ▼";
+.vehicle-status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.vehicle-actions-dropdown[open] summary::after {
-  content: " ▲";
+.dropdown-arrow {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.vehicle-actions-dropdown[open] .dropdown-arrow {
+  transform: rotate(180deg);
 }
 
 .pendiente {
