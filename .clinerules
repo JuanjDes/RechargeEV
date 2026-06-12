@@ -15,7 +15,7 @@ Cada registro debe incluir:
 - Express
 - HTML, CSS y JavaScript vanilla
 - Datos guardados sólo en `localStorage`
-- Frontend dentro de `public/`
+- Frontend dentro de `docs/`
 
 ## Reglas generales
 - No añadir dependencias npm sin pedir confirmación.

@@ -56,7 +56,7 @@ No utiliza frameworks de frontend ni base de datos externa. Los datos quedan gua
 
 ```text
 RecargasVoltio/
-├── public/
+├── docs/
 │   ├── index.html            # Interfaz principal
 │   ├── styles.css            # Estilos responsive y modo oscuro
 │   └── app.js                # Lógica del frontend y localStorage
@@ -65,7 +65,7 @@ RecargasVoltio/
 ├── package.json
 ├── package-lock.json
 ├── README.md
-└── server.js                 # Servidor Express para archivos estáticos
+└── server.js                 # Servidor Express para servir docs en local
 ```
 
 ---
