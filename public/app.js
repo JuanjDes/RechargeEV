@@ -1,57 +1,117 @@
 const vehicleForm = document.getElementById("vehicleForm");
 const vehicleList = document.getElementById("vehicleList");
+const STORAGE_KEY = "recargasVoltio.vehiculos";
+const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 
-async function getVehicles() {
-  const response = await fetch("/api/vehiculos");
-
-  if (!response.ok) {
-    throw new Error("No se pudieron cargar los vehículos");
-  }
-
-  return response.json();
+function cleanText(value, maxLength = 300) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
 }
 
-async function createVehicle(vehicle) {
-  const response = await fetch("/api/vehiculos", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(vehicle),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Error al crear vehículo");
+function createId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
   }
 
-  return response.json();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-async function updateVehicle(id, data) {
-  const response = await fetch(`/api/vehiculos/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
+function readVehicles() {
+  const storedVehicles = localStorage.getItem(STORAGE_KEY);
 
-  if (!response.ok) {
-    throw new Error("Error al actualizar vehículo");
+  if (!storedVehicles) return [];
+
+  try {
+    const vehicles = JSON.parse(storedVehicles);
+    return Array.isArray(vehicles) ? vehicles : [];
+  } catch {
+    return [];
   }
-
-  return response.json();
 }
 
-async function deleteVehicle(id) {
-  const response = await fetch(`/api/vehiculos/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+function writeVehicles(vehicles) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles));
+}
 
-  if (!response.ok) {
-    throw new Error("Error al borrar vehículo");
+function createVehicle(vehicle) {
+  const matricula = cleanText(vehicle.matricula, 20).toUpperCase();
+  const mapsUrl = cleanText(vehicle.mapsUrl, 500);
+  const notas = cleanText(vehicle.notas, 500);
+
+  if (!matricula || !mapsUrl) {
+    throw new Error("Matrícula y enlace de Google Maps son obligatorios");
   }
+
+  if (!mapsUrl.startsWith("https://")) {
+    throw new Error("El enlace debe empezar por https://");
+  }
+
+  const vehicles = readVehicles();
+  const now = new Date().toISOString();
+  const newVehicle = {
+    id: createId(),
+    matricula,
+    mapsUrl,
+    estado: "pendiente",
+    notas,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  vehicles.push(newVehicle);
+  writeVehicles(vehicles);
+
+  return newVehicle;
+}
+
+function updateVehicle(id, data) {
+  const vehicles = readVehicles();
+  const vehicle = vehicles.find((item) => item.id === id);
+
+  if (!vehicle) {
+    throw new Error("Vehículo no encontrado");
+  }
+
+  if (data.estado !== undefined) {
+    if (!ALLOWED_STATES.includes(data.estado)) {
+      throw new Error("Estado no válido");
+    }
+    vehicle.estado = data.estado;
+  }
+
+  if (data.notas !== undefined) {
+    vehicle.notas = cleanText(data.notas, 500);
+  }
+
+  if (data.matricula !== undefined) {
+    vehicle.matricula = cleanText(data.matricula, 20).toUpperCase();
+  }
+
+  if (data.mapsUrl !== undefined) {
+    const mapsUrl = cleanText(data.mapsUrl, 500);
+
+    if (!mapsUrl.startsWith("https://")) {
+      throw new Error("El enlace debe empezar por https://");
+    }
+
+    vehicle.mapsUrl = mapsUrl;
+  }
+
+  vehicle.updatedAt = new Date().toISOString();
+  writeVehicles(vehicles);
+
+  return vehicle;
+}
+
+function deleteVehicle(id) {
+  const vehicles = readVehicles();
+  const filteredVehicles = vehicles.filter((item) => item.id !== id);
+
+  if (filteredVehicles.length === vehicles.length) {
+    throw new Error("Vehículo no encontrado");
+  }
+
+  writeVehicles(filteredVehicles);
 }
 
 function escapeHtml(text) {
@@ -93,16 +153,16 @@ function renderVehicles(vehicles) {
   });
 }
 
-async function loadVehicles() {
+function loadVehicles() {
   try {
-    const vehicles = await getVehicles();
+    const vehicles = readVehicles();
     renderVehicles(vehicles);
   } catch (error) {
     vehicleList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
   }
 }
 
-vehicleForm.addEventListener("submit", async (event) => {
+vehicleForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const matricula = document.getElementById("matricula").value.trim();
@@ -110,15 +170,15 @@ vehicleForm.addEventListener("submit", async (event) => {
   const notas = document.getElementById("notas").value.trim();
 
   try {
-    await createVehicle({ matricula, mapsUrl, notas });
+    createVehicle({ matricula, mapsUrl, notas });
     vehicleForm.reset();
-    await loadVehicles();
+    loadVehicles();
   } catch (error) {
     alert(error.message);
   }
 });
 
-vehicleList.addEventListener("click", async (event) => {
+vehicleList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
 
   if (!button) return;
@@ -130,14 +190,14 @@ vehicleList.addEventListener("click", async (event) => {
       const confirmDelete = confirm("¿Borrar este vehículo?");
       if (!confirmDelete) return;
 
-      await deleteVehicle(id);
+      deleteVehicle(id);
     } else {
-      await updateVehicle(id, {
+      updateVehicle(id, {
         estado: button.dataset.estado,
       });
     }
 
-    await loadVehicles();
+    loadVehicles();
   } catch (error) {
     alert(error.message);
   }

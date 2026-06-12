@@ -6,7 +6,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 
 ![Node.js](https://img.shields.io/badge/Node.js-Express-22c55e?style=for-the-badge&logo=node.js&logoColor=white)
 ![Frontend](https://img.shields.io/badge/Frontend-HTML%20%2B%20CSS%20%2B%20JS-facc15?style=for-the-badge)
-![Datos](https://img.shields.io/badge/Datos-JSON-38bdf8?style=for-the-badge)
+![Datos](https://img.shields.io/badge/Datos-localStorage-38bdf8?style=for-the-badge)
 
 ---
 
@@ -24,7 +24,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
   - 🔴 `incidencia`
 - Abrir la ubicación directamente en Google Maps.
 - Borrar vehículos cuando ya no sean necesarios.
-- Guardado local en archivo JSON.
+- Guardado local en el navegador con `localStorage`.
 - Diseño responsive pensado para móvil y uso nocturno.
 
 ---
@@ -46,9 +46,9 @@ La app está organizada en una única pantalla:
 - **HTML**
 - **CSS**
 - **JavaScript vanilla**
-- Persistencia en `data/vehiculos.json`
+- Persistencia en `localStorage`
 
-No utiliza frameworks de frontend ni base de datos externa.
+No utiliza frameworks de frontend ni base de datos externa. Los datos quedan guardados sólo en el navegador donde se usa la aplicación.
 
 ---
 
@@ -56,18 +56,16 @@ No utiliza frameworks de frontend ni base de datos externa.
 
 ```text
 RecargasVoltio/
-├── data/
-│   └── vehiculos.json        # Datos guardados localmente
 ├── public/
 │   ├── index.html            # Interfaz principal
 │   ├── styles.css            # Estilos responsive y modo oscuro
-│   └── app.js                # Lógica del frontend
+│   └── app.js                # Lógica del frontend y localStorage
 ├── .clinerules               # Reglas del proyecto
 ├── .gitignore
 ├── package.json
 ├── package-lock.json
 ├── README.md
-└── server.js                 # Servidor Express y API REST
+└── server.js                 # Servidor Express para archivos estáticos
 ```
 
 ---
@@ -100,16 +98,15 @@ http://localhost:3000
 
 ---
 
-## 🔌 API disponible
+## Persistencia local
 
-La aplicación mantiene estas rutas principales:
+La aplicación guarda los vehículos directamente en `localStorage`, usando la clave:
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| `GET` | `/api/vehiculos` | Obtiene todos los vehículos |
-| `POST` | `/api/vehiculos` | Crea un nuevo vehículo |
-| `PATCH` | `/api/vehiculos/:id` | Actualiza estado, notas, matrícula o enlace |
-| `DELETE` | `/api/vehiculos/:id` | Borra un vehículo |
+```text
+recargasVoltio.vehiculos
+```
+
+No hay API de datos ni escritura en archivos JSON. Cada navegador/dispositivo mantiene su propia lista local.
 
 ### Ejemplo de vehículo
 
@@ -129,14 +126,12 @@ La aplicación mantiene estas rutas principales:
 
 ## 🛡️ Seguridad y validaciones
 
-El servidor aplica validaciones básicas para mantener la app segura y sencilla:
+El frontend aplica validaciones básicas para mantener la app segura y sencilla:
 
-- Límite de tamaño para JSON entrante.
 - Limpieza y recorte de textos recibidos.
 - Matrículas convertidas a mayúsculas.
 - Estados limitados a valores permitidos.
 - Enlaces obligados a empezar por `https://`.
-- Uso de `encodeURIComponent()` en rutas dinámicas del frontend.
 - Enlaces externos con `rel="noopener noreferrer"`.
 - Escape de contenido antes de insertarlo en la interfaz.
 
@@ -151,7 +146,7 @@ El servidor aplica validaciones básicas para mantener la app segura y sencilla:
 5. Cambia su estado a `cargando`, `cargado` o `incidencia`.
 6. Pulsa **Abrir Maps** para comprobar el enlace.
 7. Borra el vehículo y verifica que desaparece.
-8. Revisa que los datos se guardan en `data/vehiculos.json`.
+8. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage`.
 
 ---
 
@@ -165,6 +160,6 @@ Mantener una herramienta personal, ligera y fiable para gestionar recargas de ve
 
 - Mantener cambios pequeños y verificables.
 - No añadir dependencias npm sin confirmación previa.
-- Conservar siempre las rutas API existentes.
+- Mantener la persistencia sólo en `localStorage` salvo que se decida lo contrario.
 - Priorizar una interfaz clara, responsive y usable de noche.
-- Validar siempre los datos recibidos en el servidor.
+- Validar siempre los datos antes de guardarlos.

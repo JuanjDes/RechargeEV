@@ -14,7 +14,7 @@ Cada registro debe incluir:
 - Node.js
 - Express
 - HTML, CSS y JavaScript vanilla
-- Datos guardados en `data/vehiculos.json`
+- Datos guardados sólo en `localStorage`
 - Frontend dentro de `public/`
 
 ## Reglas generales
@@ -25,11 +25,10 @@ Cada registro debe incluir:
 - No reescribir todo el proyecto si solo se pide una mejora concreta.
 
 ## Seguridad
-- Validar siempre los datos recibidos en el servidor.
+- Validar siempre los datos antes de guardarlos en `localStorage`.
 - Limitar tamaños de texto.
 - No confiar en datos del usuario.
 - No insertar datos del usuario con `innerHTML` sin escaparlos antes.
-- Usar `encodeURIComponent()` en rutas dinámicas del frontend.
 - Mantener `rel="noopener noreferrer"` en enlaces externos.
 - No guardar datos sensibles innecesarios.
 
@@ -43,9 +42,5 @@ Cada registro debe incluir:
 Antes de modificar:
 1. Explicar brevemente qué archivos se van a tocar.
 2. Hacer la mínima modificación necesaria.
-3. Mantener funcionando las rutas existentes:
-   - GET `/api/vehiculos`
-   - POST `/api/vehiculos`
-   - PATCH `/api/vehiculos/:id`
-   - DELETE `/api/vehiculos/:id`
+3. Mantener la persistencia sólo en `localStorage`, salvo petición explícita.
 4. Indicar cómo probar el cambio.
