@@ -239,8 +239,16 @@ function renderVehicleMarkers(vehicles) {
   const vehiclesWithCoordinates = vehicles.filter((vehicle) => isValidCoordinates(vehicle.coordinates));
 
   vehiclesWithCoordinates.forEach((vehicle) => {
+    const popupContent = `
+      <strong>${escapeHtml(vehicle.matricula)}</strong><br>
+      ${escapeHtml(vehicle.notas || "Sin notas")}<br>
+      <a class="popup-maps-link" href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">
+        Navegar
+      </a>
+    `;
+
     L.marker([vehicle.coordinates.lat, vehicle.coordinates.lng])
-      .bindPopup(`<strong>${escapeHtml(vehicle.matricula)}</strong><br>${escapeHtml(vehicle.estado)}`)
+      .bindPopup(popupContent)
       .addTo(markersLayer);
   });
 

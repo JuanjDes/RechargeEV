@@ -116,6 +116,27 @@ button:disabled {
   margin: 10px 12px;
 }
 
+.leaflet-popup-content .popup-maps-link {
+  display: block;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ef4444;
+  color: #ffffff;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.leaflet-popup-content .popup-maps-link:hover,
+.leaflet-popup-content .popup-maps-link:focus-visible {
+  background: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 6px 14px rgb(239 68 68 / 0.35);
+  transform: translateY(-1px);
+}
+
 .vehicle-list {
   display: grid;
   gap: 12px;
