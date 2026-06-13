@@ -4,8 +4,10 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Acepta cuerpos JSON pequeños en las peticiones a la API.
 app.use(express.json({ limit: "20kb" }));
 
+// Permite consumir la API desde GitHub Pages u otros dominios.
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -18,11 +20,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Sirve el frontend estático ubicado en docs/.
 app.use(express.static(path.join(__dirname, "docs")));
 
 function extractCoordinates(text) {
   if (typeof text !== "string" || !text) return null;
 
+  // Patrones habituales de coordenadas en enlaces y páginas de Google Maps.
   const patterns = [
     /@(-?\d{1,2}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)/,
     /!3d(-?\d{1,2}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/,
@@ -66,6 +70,7 @@ app.post("/api/analyze-maps-url", async (req, res) => {
   }
 
   try {
+    // Sigue redirecciones de URLs cortas para llegar a la URL final de Maps.
     const response = await fetch(parsedUrl.href, {
       redirect: "follow",
       headers: {
@@ -76,10 +81,12 @@ app.post("/api/analyze-maps-url", async (req, res) => {
     const finalUrl = response.url || parsedUrl.href;
     const finalUrlCoordinates = extractCoordinates(finalUrl);
 
+    // Primero intenta extraer coordenadas desde la URL final.
     if (finalUrlCoordinates) {
       return res.json({ found: true, coordinates: finalUrlCoordinates, finalUrl });
     }
 
+    // Si la URL no las contiene, busca también dentro del HTML recibido.
     const body = await response.text();
     const bodyCoordinates = extractCoordinates(body);
 

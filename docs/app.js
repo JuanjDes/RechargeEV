@@ -11,11 +11,13 @@ const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analy
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 let editingVehicleId = null;
 
+// Limpia textos de usuario y limita su tamaño antes de guardarlos.
 function cleanText(value, maxLength = 300) {
   if (typeof value !== "string") return "";
   return value.trim().slice(0, maxLength);
 }
 
+// Genera un identificador único para cada vehículo.
 function createId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {
     return window.crypto.randomUUID();
@@ -24,6 +26,7 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+// Lee los vehículos guardados en localStorage de forma segura.
 function readVehicles() {
   const storedVehicles = localStorage.getItem(STORAGE_KEY);
 
@@ -37,26 +40,31 @@ function readVehicles() {
   }
 }
 
+// Persiste toda la lista en localStorage.
 function writeVehicles(vehicles) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles));
 }
 
+// Busca un vehículo concreto dentro del almacenamiento local.
 function findVehicleById(id) {
   return readVehicles().find((item) => item.id === id);
 }
 
+// Cambia el formulario entre modo creación y edición.
 function setFormMode(mode) {
   const isEditing = mode === "edit";
   vehicleSubmitButton.textContent = isEditing ? "Guardar cambios" : "Añadir vehículo";
   cancelEditButton.hidden = !isEditing;
 }
 
+// Limpia el formulario y vuelve al modo creación.
 function resetVehicleForm() {
   editingVehicleId = null;
   vehicleForm.reset();
   setFormMode("create");
 }
 
+// Valida y añade un nuevo vehículo a la lista local.
 function createVehicle(vehicle) {
   const matricula = cleanText(vehicle.matricula, 20).toUpperCase();
   const mapsUrl = cleanText(vehicle.mapsUrl, 500);
@@ -88,6 +96,7 @@ function createVehicle(vehicle) {
   return newVehicle;
 }
 
+// Actualiza solo los campos recibidos de un vehículo existente.
 function updateVehicle(id, data) {
   const vehicles = readVehicles();
   const vehicle = vehicles.find((item) => item.id === id);
@@ -137,6 +146,7 @@ function updateVehicle(id, data) {
   return vehicle;
 }
 
+// Elimina un vehículo por id y guarda la lista resultante.
 function deleteVehicle(id) {
   const vehicles = readVehicles();
   const filteredVehicles = vehicles.filter((item) => item.id !== id);
@@ -148,17 +158,20 @@ function deleteVehicle(id) {
   writeVehicles(filteredVehicles);
 }
 
+// Escapa datos de usuario antes de insertarlos con innerHTML.
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text || "";
   return div.innerHTML;
 }
 
+// Muestra el resultado del análisis de Google Maps.
 function showMapsAnalysisResult(message, type = "info") {
   mapsUrlAnalysisResult.className = `analysis-result ${type}`;
   mapsUrlAnalysisResult.textContent = message;
 }
 
+// Pinta la lista completa de vehículos en pantalla.
 function renderVehicles(vehicles) {
   vehiclesCount.textContent = vehicles.length;
   vehicleList.innerHTML = "";
@@ -203,6 +216,7 @@ function renderVehicles(vehicles) {
   });
 }
 
+// Carga los vehículos guardados y actualiza la interfaz.
 function loadVehicles() {
   try {
     const vehicles = readVehicles();
@@ -212,6 +226,7 @@ function loadVehicles() {
   }
 }
 
+// Alta o edición de vehículo desde el formulario principal.
 vehicleForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -237,6 +252,7 @@ cancelEditButton.addEventListener("click", () => {
   resetVehicleForm();
 });
 
+// Envía la URL al backend de Render para extraer coordenadas.
 analyzeMapsUrlButton.addEventListener("click", async () => {
   const mapsUrl = document.getElementById("mapsUrl").value.trim();
 
@@ -279,6 +295,7 @@ analyzeMapsUrlButton.addEventListener("click", async () => {
   }
 });
 
+// Gestiona acciones de cada tarjeta usando delegación de eventos.
 vehicleList.addEventListener("click", (event) => {
   const button = event.target.closest("button");
 
@@ -320,6 +337,7 @@ vehicleList.addEventListener("click", (event) => {
   }
 });
 
+// Muestra u oculta la lista de vehículos.
 vehiclesToggle.addEventListener("click", () => {
   const isExpanded = vehiclesToggle.getAttribute("aria-expanded") === "true";
 
