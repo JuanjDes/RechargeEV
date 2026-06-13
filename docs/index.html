@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>App Recargas</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -18,12 +22,9 @@
       <button id="cancelEditButton" class="secondary" type="button" hidden>Cancelar edición</button>
     </form>
 
-    <section class="card maps-analysis-card" aria-labelledby="mapsAnalysisTitle">
-      <h2 id="mapsAnalysisTitle">Análisis de Google Maps</h2>
-      <button id="analyzeMapsUrlButton" type="button">Analizar URL de Google Maps</button>
-      <div id="mapsUrlAnalysisResult" class="analysis-result" role="status" aria-live="polite">
-        Pega una URL de Google Maps en el formulario y pulsa el botón para extraer coordenadas.
-      </div>
+    <section class="card map-card" aria-labelledby="mapTitle">
+      <h2 id="mapTitle">Mapa de vehículos</h2>
+      <div id="vehiclesMap" class="vehicles-map" aria-label="Mapa con la posición de los vehículos"></div>
     </section>
 
     <section>
@@ -43,6 +44,9 @@
     </section>
   </main>
 
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
   <script src="app.js"></script>
 </body>
 </html>

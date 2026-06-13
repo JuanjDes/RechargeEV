@@ -94,36 +94,26 @@ button:disabled {
   color: #f9fafb;
 }
 
-.maps-analysis-card h2 {
+.map-card h2 {
   margin-top: 0;
 }
 
-.analysis-result {
-  margin-top: 12px;
-  padding: 12px;
+.vehicles-map {
+  height: 340px;
   border: 1px solid #374151;
   border-radius: 10px;
+  overflow: hidden;
   background: #111827;
-  color: #d1d5db;
-  line-height: 1.4;
 }
 
-.analysis-result.success {
-  border-color: #22c55e;
-  background: #052e16;
-  color: #bbf7d0;
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #1f2937;
+  color: #f9fafb;
 }
 
-.analysis-result.error {
-  border-color: #ef4444;
-  background: #450a0a;
-  color: #fecaca;
-}
-
-.analysis-result.loading {
-  border-color: #38bdf8;
-  background: #082f49;
-  color: #bae6fd;
+.leaflet-popup-content {
+  margin: 10px 12px;
 }
 
 .vehicle-list {
@@ -239,6 +229,10 @@ button:disabled {
 }
 
 @media (max-width: 520px) {
+  .vehicles-map {
+    height: 300px;
+  }
+
   .actions {
     grid-template-columns: 1fr;
   }

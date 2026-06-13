@@ -4,12 +4,14 @@ const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
-const analyzeMapsUrlButton = document.getElementById("analyzeMapsUrlButton");
-const mapsUrlAnalysisResult = document.getElementById("mapsUrlAnalysisResult");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
+const DEFAULT_MAP_CENTER = [40.4168, -3.7038];
+const DEFAULT_MAP_ZOOM = 6;
 let editingVehicleId = null;
+let vehiclesMap = null;
+let markersLayer = null;
 
 // Limpia textos de usuario y limita su tamaño antes de guardarlos.
 function cleanText(value, maxLength = 300) {
@@ -64,8 +66,8 @@ function resetVehicleForm() {
   setFormMode("create");
 }
 
-// Valida y añade un nuevo vehículo a la lista local.
-function createVehicle(vehicle) {
+// Valida, obtiene coordenadas y añade un nuevo vehículo a la lista local.
+async function createVehicle(vehicle) {
   const matricula = cleanText(vehicle.matricula, 20).toUpperCase();
   const mapsUrl = cleanText(vehicle.mapsUrl, 500);
   const notas = cleanText(vehicle.notas, 500);
@@ -78,12 +80,14 @@ function createVehicle(vehicle) {
     throw new Error("El enlace debe empezar por https://");
   }
 
+  const coordinates = await analyzeMapsUrl(mapsUrl);
   const vehicles = readVehicles();
   const now = new Date().toISOString();
   const newVehicle = {
     id: createId(),
     matricula,
     mapsUrl,
+    coordinates,
     estado: "pendiente",
     notas,
     createdAt: now,
@@ -97,7 +101,7 @@ function createVehicle(vehicle) {
 }
 
 // Actualiza solo los campos recibidos de un vehículo existente.
-function updateVehicle(id, data) {
+async function updateVehicle(id, data) {
   const vehicles = readVehicles();
   const vehicle = vehicles.find((item) => item.id === id);
 
@@ -128,6 +132,7 @@ function updateVehicle(id, data) {
 
   if (data.mapsUrl !== undefined) {
     const mapsUrl = cleanText(data.mapsUrl, 500);
+    const mapsUrlChanged = mapsUrl !== vehicle.mapsUrl;
 
     if (!mapsUrl) {
       throw new Error("El enlace de Google Maps es obligatorio");
@@ -135,6 +140,10 @@ function updateVehicle(id, data) {
 
     if (!mapsUrl.startsWith("https://")) {
       throw new Error("El enlace debe empezar por https://");
+    }
+
+    if (mapsUrlChanged || !isValidCoordinates(vehicle.coordinates)) {
+      vehicle.coordinates = await analyzeMapsUrl(mapsUrl);
     }
 
     vehicle.mapsUrl = mapsUrl;
@@ -165,10 +174,85 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Muestra el resultado del análisis de Google Maps.
-function showMapsAnalysisResult(message, type = "info") {
-  mapsUrlAnalysisResult.className = `analysis-result ${type}`;
-  mapsUrlAnalysisResult.textContent = message;
+// Comprueba que las coordenadas recibidas sean utilizables por Leaflet.
+function isValidCoordinates(coordinates) {
+  return (
+    coordinates &&
+    Number.isFinite(coordinates.lat) &&
+    Number.isFinite(coordinates.lng) &&
+    coordinates.lat >= -90 &&
+    coordinates.lat <= 90 &&
+    coordinates.lng >= -180 &&
+    coordinates.lng <= 180
+  );
+}
+
+// Pide al backend que resuelva la URL de Maps y devuelva coordenadas.
+async function analyzeMapsUrl(mapsUrl) {
+  const response = await fetch(MAPS_ANALYSIS_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url: mapsUrl }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "No se pudo analizar la URL");
+  }
+
+  if (!result.found || !isValidCoordinates(result.coordinates)) {
+    throw new Error(result.message || "No se pudieron obtener coordenadas de esta URL de Google Maps");
+  }
+
+  return result.coordinates;
+}
+
+// Crea el mapa una sola vez y prepara la capa de marcadores.
+function initMap() {
+  vehiclesMap = L.map("vehiclesMap").setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+  markersLayer = L.layerGroup().addTo(vehiclesMap);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap",
+    maxZoom: 19,
+  }).addTo(vehiclesMap);
+}
+
+// Fuerza a Leaflet a recalcular el tamaño real del contenedor.
+function refreshMapSize() {
+  if (!vehiclesMap) return;
+
+  setTimeout(() => {
+    vehiclesMap.invalidateSize();
+  }, 100);
+}
+
+// Redibuja todos los marcadores a partir de los vehículos guardados.
+function renderVehicleMarkers(vehicles) {
+  if (!markersLayer) return;
+
+  markersLayer.clearLayers();
+
+  const vehiclesWithCoordinates = vehicles.filter((vehicle) => isValidCoordinates(vehicle.coordinates));
+
+  vehiclesWithCoordinates.forEach((vehicle) => {
+    L.marker([vehicle.coordinates.lat, vehicle.coordinates.lng])
+      .bindPopup(`<strong>${escapeHtml(vehicle.matricula)}</strong><br>${escapeHtml(vehicle.estado)}`)
+      .addTo(markersLayer);
+  });
+
+  if (vehiclesWithCoordinates.length > 0) {
+    const bounds = L.latLngBounds(
+      vehiclesWithCoordinates.map((vehicle) => [vehicle.coordinates.lat, vehicle.coordinates.lng])
+    );
+
+    vehiclesMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+  } else {
+    vehiclesMap.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+  }
 }
 
 // Pinta la lista completa de vehículos en pantalla.
@@ -221,13 +305,14 @@ function loadVehicles() {
   try {
     const vehicles = readVehicles();
     renderVehicles(vehicles);
+    renderVehicleMarkers(vehicles);
   } catch (error) {
     vehicleList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
   }
 }
 
 // Alta o edición de vehículo desde el formulario principal.
-vehicleForm.addEventListener("submit", (event) => {
+vehicleForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const matricula = document.getElementById("matricula").value.trim();
@@ -235,16 +320,22 @@ vehicleForm.addEventListener("submit", (event) => {
   const notas = document.getElementById("notas").value.trim();
 
   try {
+    vehicleSubmitButton.disabled = true;
+    vehicleSubmitButton.textContent = "Obteniendo coordenadas...";
+
     if (editingVehicleId) {
-      updateVehicle(editingVehicleId, { matricula, mapsUrl, notas });
+      await updateVehicle(editingVehicleId, { matricula, mapsUrl, notas });
     } else {
-      createVehicle({ matricula, mapsUrl, notas });
+      await createVehicle({ matricula, mapsUrl, notas });
     }
 
     resetVehicleForm();
     loadVehicles();
   } catch (error) {
     alert(error.message);
+  } finally {
+    vehicleSubmitButton.disabled = false;
+    setFormMode(editingVehicleId ? "edit" : "create");
   }
 });
 
@@ -252,51 +343,8 @@ cancelEditButton.addEventListener("click", () => {
   resetVehicleForm();
 });
 
-// Envía la URL al backend de Render para extraer coordenadas.
-analyzeMapsUrlButton.addEventListener("click", async () => {
-  const mapsUrl = document.getElementById("mapsUrl").value.trim();
-
-  if (!mapsUrl) {
-    showMapsAnalysisResult("Pega primero una URL de Google Maps en el formulario.", "error");
-    return;
-  }
-
-  analyzeMapsUrlButton.disabled = true;
-  showMapsAnalysisResult("Analizando URL... Render Free puede tardar unos segundos si estaba dormido.", "loading");
-
-  try {
-    const response = await fetch(MAPS_ANALYSIS_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ url: mapsUrl }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "No se pudo analizar la URL");
-    }
-
-    if (!result.found || !result.coordinates) {
-      showMapsAnalysisResult(result.message || "No se encontraron coordenadas en la URL analizada.", "error");
-      return;
-    }
-
-    showMapsAnalysisResult(
-      `Coordenadas encontradas: Latitud ${result.coordinates.lat}, Longitud ${result.coordinates.lng}`,
-      "success"
-    );
-  } catch (error) {
-    showMapsAnalysisResult(error.message, "error");
-  } finally {
-    analyzeMapsUrlButton.disabled = false;
-  }
-});
-
 // Gestiona acciones de cada tarjeta usando delegación de eventos.
-vehicleList.addEventListener("click", (event) => {
+vehicleList.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
 
   if (!button) return;
@@ -326,7 +374,7 @@ vehicleList.addEventListener("click", (event) => {
 
       deleteVehicle(id);
     } else {
-      updateVehicle(id, {
+      await updateVehicle(id, {
         estado: button.dataset.estado,
       });
     }
@@ -345,4 +393,7 @@ vehiclesToggle.addEventListener("click", () => {
   vehicleList.hidden = isExpanded;
 });
 
+initMap();
 loadVehicles();
+refreshMapSize();
+window.addEventListener("resize", refreshMapSize);
