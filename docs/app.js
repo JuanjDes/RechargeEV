@@ -2,6 +2,7 @@ const vehicleForm = document.getElementById("vehicleForm");
 const vehicleList = document.getElementById("vehicleList");
 const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
+const deleteAllVehiclesButton = document.getElementById("deleteAllVehiclesButton");
 const mapToggle = document.getElementById("mapToggle");
 const mapContent = document.getElementById("mapContent");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
@@ -172,6 +173,11 @@ function deleteVehicle(id) {
   writeVehicles(filteredVehicles);
 }
 
+// Elimina todos los vehículos guardados de una sola vez.
+function deleteAllVehicles() {
+  writeVehicles([]);
+}
+
 // Escapa datos de usuario antes de insertarlos con innerHTML.
 function escapeHtml(text) {
   const div = document.createElement("div");
@@ -307,6 +313,7 @@ function renderVehicleMarkers(vehicles) {
 // Pinta la lista completa de vehículos en pantalla.
 function renderVehicles(vehicles) {
   vehiclesCount.textContent = vehicles.length;
+  deleteAllVehiclesButton.hidden = vehicles.length === 0;
   vehicleList.innerHTML = "";
 
   if (vehicles.length === 0) {
@@ -325,7 +332,7 @@ function renderVehicles(vehicles) {
       ? `
           <p class="vehicle-address">
             ${streetAddress ? `<span><strong>Dirección:</strong> ${escapeHtml(streetAddress)}</span>` : ""}
-            ${postcodeLocality ? `<span><strong>CP / Localidad:</strong> ${escapeHtml(postcodeLocality)}</span>` : ""}
+            ${postcodeLocality ? `<span><strong>CP/Local :</strong> ${escapeHtml(postcodeLocality)}</span>` : ""}
           </p>
         `
       : "";
@@ -453,6 +460,24 @@ vehiclesToggle.addEventListener("click", () => {
 
   vehiclesToggle.setAttribute("aria-expanded", String(!isExpanded));
   vehicleList.hidden = isExpanded;
+});
+
+deleteAllVehiclesButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+
+  const confirmDelete = confirm("¿Borrar todos los vehículos?");
+  if (!confirmDelete) return;
+
+  deleteAllVehicles();
+  resetVehicleForm();
+  loadVehicles();
+});
+
+deleteAllVehiclesButton.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+
+  event.preventDefault();
+  deleteAllVehiclesButton.click();
 });
 
 // Muestra u oculta el mapa de vehículos.

@@ -18,9 +18,11 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
   - enlace de Google Maps
   - notas opcionales
 - Obtener coordenadas a partir del enlace de Google Maps mediante una API auxiliar.
+- Obtener dirección postal, código postal y localidad/zona mediante geocodificación inversa.
 - Ver los vehículos ubicados en un mapa interactivo con Leaflet y OpenStreetMap.
 - Ver todos los vehículos registrados.
 - Mostrar u ocultar el listado de vehículos con contador.
+- Ver dirección, CP y localidad en la tarjeta de cada vehículo cuando estén disponibles.
 - Cambiar el estado de cada vehículo:
   - 🟡 `pendiente`
   - 🔵 `cargando`
@@ -29,6 +31,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 - Editar matrícula, enlace de Google Maps y notas de un vehículo existente.
 - Abrir la ubicación directamente en Google Maps.
 - Borrar vehículos cuando ya no sean necesarios.
+- Borrar todos los vehículos de una sola vez con confirmación previa.
 - Guardado local en el navegador con `localStorage`.
 - Diseño responsive pensado para móvil y uso nocturno.
 
@@ -40,8 +43,8 @@ La app está organizada en una única pantalla:
 
 1. **Formulario superior** para registrar un vehículo.
 2. **Mapa interactivo** con la posición de los vehículos registrados.
-3. **Listado plegable de vehículos** con matrícula, estado, notas y acciones rápidas.
-4. **Botones grandes** para editar, abrir Maps, marcar estados o borrar durante el turno.
+3. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad y acciones rápidas.
+4. **Botones grandes** para editar, abrir Maps, marcar estados, borrar un vehículo o borrar todos durante el turno.
 
 ---
 
@@ -54,11 +57,12 @@ La app está organizada en una única pantalla:
 - **JavaScript vanilla**
 - **Leaflet**
 - **OpenStreetMap**
+- **Nominatim / OpenStreetMap** para geocodificación inversa
 - Persistencia en `localStorage`
 
 No utiliza frameworks de frontend ni base de datos externa. Los datos quedan guardados sólo en el navegador donde se usa la aplicación.
 
-El servidor Express también expone una API auxiliar para analizar enlaces de Google Maps y extraer coordenadas, necesarias para pintar los marcadores en el mapa.
+El servidor Express también expone una API auxiliar para analizar enlaces de Google Maps, extraer coordenadas y obtener datos de dirección postal mediante geocodificación inversa, necesarios para pintar los marcadores en el mapa y mostrar la ubicación de forma legible.
 
 ---
 
@@ -131,6 +135,16 @@ La API del servidor se usa sólo para analizar enlaces de Google Maps y devolver
     "lat": 40.4168,
     "lng": -3.7038
   },
+  "address": {
+    "road": "Calle de ejemplo",
+    "houseNumber": "10",
+    "postcode": "28013",
+    "locality": "Madrid",
+    "city": "Madrid",
+    "province": "Comunidad de Madrid",
+    "country": "España",
+    "displayName": "Calle de ejemplo, 10, 28013 Madrid, España"
+  },
   "estado": "pendiente",
   "notas": "Cargar antes de las 06:00",
   "createdAt": "2026-01-01T00:00:00.000Z",
@@ -157,7 +171,7 @@ El frontend aplica validaciones básicas para mantener la app segura y sencilla:
 
 ## 🌐 API auxiliar
 
-El servidor incluye un endpoint para resolver enlaces de Google Maps y obtener coordenadas:
+El servidor incluye un endpoint para resolver enlaces de Google Maps, obtener coordenadas y consultar una dirección postal aproximada mediante Nominatim / OpenStreetMap:
 
 ```text
 POST /api/analyze-maps-url
@@ -180,11 +194,26 @@ Respuesta cuando encuentra coordenadas:
     "lat": 40.4168,
     "lng": -3.7038
   },
+  "address": {
+    "road": "Calle de ejemplo",
+    "houseNumber": "10",
+    "postcode": "28013",
+    "locality": "Madrid",
+    "suburb": "",
+    "neighbourhood": "",
+    "quarter": "",
+    "cityDistrict": "Centro",
+    "city": "Madrid",
+    "province": "Comunidad de Madrid",
+    "country": "España",
+    "displayName": "Calle de ejemplo, 10, Centro, 28013 Madrid, España",
+    "rawAddress": {}
+  },
   "finalUrl": "https://..."
 }
 ```
 
-Esta API sigue redirecciones de URLs cortas de Google Maps e intenta extraer coordenadas tanto de la URL final como del contenido recibido.
+Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coordenadas tanto de la URL final como del contenido recibido y, si las encuentra, hace geocodificación inversa para devolver datos de dirección. La dirección puede ser parcial o `null` si el servicio externo no devuelve información útil.
 
 ---
 
@@ -195,11 +224,13 @@ Esta API sigue redirecciones de URLs cortas de Google Maps e intenta extraer coo
 3. Añade un vehículo con matrícula y enlace `https://` de Google Maps.
 4. Comprueba que se obtienen coordenadas y aparece un marcador en el mapa.
 5. Despliega el listado y verifica que el vehículo aparece como `pendiente`.
-6. Edita el vehículo y comprueba que se actualizan sus datos.
-7. Cambia su estado a `cargando`, `cargado` o `incidencia`.
-8. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
-9. Borra el vehículo y verifica que desaparece del listado y del mapa.
-10. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage`.
+6. Comprueba que, si la geocodificación inversa devuelve datos, se muestran dirección, CP y localidad/zona en la tarjeta.
+7. Edita el vehículo y comprueba que se actualizan sus datos, incluida la dirección si cambia el enlace de Maps.
+8. Cambia su estado a `cargando`, `cargado` o `incidencia`.
+9. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
+10. Borra un vehículo y verifica que desaparece del listado y del mapa.
+11. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
+12. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 
 ---
 
@@ -215,5 +246,6 @@ Mantener una herramienta personal, ligera y fiable para gestionar recargas de ve
 - No añadir dependencias npm sin confirmación previa.
 - Mantener la persistencia sólo en `localStorage` salvo que se decida lo contrario.
 - Usar la API sólo para análisis de URLs y coordenadas, no para persistencia.
+- Tratar la dirección obtenida por geocodificación inversa como información auxiliar que puede ser parcial.
 - Priorizar una interfaz clara, responsive y usable de noche.
 - Validar siempre los datos antes de guardarlos.

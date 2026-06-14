@@ -23,10 +23,36 @@ h2 {
 .section-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 12px;
   background: #1f2937;
   color: #f9fafb;
   border: 1px solid #374151;
+}
+
+.delete-all-vehicles-button {
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.delete-all-vehicles-button:hover,
+.delete-all-vehicles-button:focus-visible {
+  filter: brightness(1.08);
+  outline: 2px solid #fecaca;
+  outline-offset: 2px;
+}
+
+.delete-all-vehicles-button[hidden] {
+  display: none;
+}
+
+.section-toggle-icon {
+  margin-left: auto;
 }
 
 .section-toggle[aria-expanded="true"] .section-toggle-icon {
