@@ -1,7 +1,9 @@
-﻿const vehicleForm = document.getElementById("vehicleForm");
+const vehicleForm = document.getElementById("vehicleForm");
 const vehicleList = document.getElementById("vehicleList");
 const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
+const mapToggle = document.getElementById("mapToggle");
+const mapContent = document.getElementById("mapContent");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
@@ -399,6 +401,18 @@ vehiclesToggle.addEventListener("click", () => {
 
   vehiclesToggle.setAttribute("aria-expanded", String(!isExpanded));
   vehicleList.hidden = isExpanded;
+});
+
+// Muestra u oculta el mapa de vehículos.
+mapToggle.addEventListener("click", () => {
+  const isExpanded = mapToggle.getAttribute("aria-expanded") === "true";
+
+  mapToggle.setAttribute("aria-expanded", String(!isExpanded));
+  mapContent.hidden = isExpanded;
+
+  if (!isExpanded) {
+    refreshMapSize();
+  }
 });
 
 initMap();

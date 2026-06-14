@@ -22,9 +22,22 @@
       <button id="cancelEditButton" class="secondary" type="button" hidden>Cancelar edición</button>
     </form>
 
-    <section class="card map-card" aria-labelledby="mapTitle">
-      <h2 id="mapTitle">Mapa de vehículos</h2>
-      <div id="vehiclesMap" class="vehicles-map" aria-label="Mapa con la posición de los vehículos"></div>
+    <section class="map-section" aria-labelledby="mapTitle">
+      <h2 id="mapTitle">
+        <button
+          id="mapToggle"
+          class="section-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="mapContent"
+        >
+          <span>Mapa de vehículos</span>
+          <span class="section-toggle-icon" aria-hidden="true">▾</span>
+        </button>
+      </h2>
+      <div id="mapContent" class="card map-card" hidden>
+        <div id="vehiclesMap" class="vehicles-map" aria-label="Mapa con la posición de los vehículos"></div>
+      </div>
     </section>
 
     <section>

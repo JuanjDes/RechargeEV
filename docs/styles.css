@@ -33,7 +33,8 @@ h2 {
   transform: rotate(180deg);
 }
 
-.vehicle-list[hidden] {
+.vehicle-list[hidden],
+.map-card[hidden] {
   display: none;
 }
 
@@ -94,7 +95,7 @@ button:disabled {
   color: #f9fafb;
 }
 
-.map-card h2 {
+.map-card {
   margin-top: 0;
 }
 
