@@ -54,6 +54,16 @@ function buildAddressPayload(nominatimResult) {
   const address = nominatimResult?.address || {};
   const road = address.road || address.pedestrian || address.footway || address.path || address.cycleway || "";
   const houseNumber = address.house_number || "";
+  const locality =
+    address.suburb ||
+    address.neighbourhood ||
+    address.quarter ||
+    address.city_district ||
+    address.village ||
+    address.town ||
+    address.municipality ||
+    address.city ||
+    "";
   const city = address.city || address.town || address.village || address.municipality || "";
   const province = address.province || address.county || address.state || "";
 
@@ -61,10 +71,16 @@ function buildAddressPayload(nominatimResult) {
     road,
     houseNumber,
     postcode: address.postcode || "",
+    locality,
+    suburb: address.suburb || "",
+    neighbourhood: address.neighbourhood || "",
+    quarter: address.quarter || "",
+    cityDistrict: address.city_district || "",
     city,
     province,
     country: address.country || "",
     displayName: nominatimResult?.display_name || "",
+    rawAddress: address,
   };
 }
 
