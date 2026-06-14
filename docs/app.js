@@ -6,8 +6,6 @@ const mapToggle = document.getElementById("mapToggle");
 const mapContent = document.getElementById("mapContent");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
-const nominatimDebug = document.getElementById("nominatimDebug");
-const nominatimDebugContent = document.getElementById("nominatimDebugContent");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
@@ -85,7 +83,6 @@ async function createVehicle(vehicle) {
   }
 
   const mapsAnalysis = await analyzeMapsUrl(mapsUrl);
-  renderNominatimDebug(mapsAnalysis);
   const vehicles = readVehicles();
   const now = new Date().toISOString();
   const newVehicle = {
@@ -150,7 +147,6 @@ async function updateVehicle(id, data) {
 
     if (mapsUrlChanged || !isValidCoordinates(vehicle.coordinates) || !hasAddressData(vehicle.address)) {
       const mapsAnalysis = await analyzeMapsUrl(mapsUrl);
-      renderNominatimDebug(mapsAnalysis);
       vehicle.coordinates = mapsAnalysis.coordinates;
       vehicle.address = mapsAnalysis.address;
     }
@@ -227,51 +223,6 @@ function formatLocality(address) {
     address.city ||
     ""
   );
-}
-
-// Muestra el último resultado recibido del backend para inspeccionar los campos de Nominatim.
-function renderNominatimDebug(mapsAnalysis) {
-  if (!nominatimDebug || !nominatimDebugContent) return;
-
-  const coordinates = mapsAnalysis?.coordinates;
-  const address = mapsAnalysis?.address;
-  const rows = [
-    ["Latitud", coordinates?.lat],
-    ["Longitud", coordinates?.lng],
-    ["Dirección completa", address?.displayName],
-    ["Calle", address?.road],
-    ["Número", address?.houseNumber],
-    ["Código postal", address?.postcode],
-    ["Localidad calculada", formatLocality(address)],
-    ["Suburbio", address?.suburb],
-    ["Barrio", address?.neighbourhood],
-    ["Quarter", address?.quarter],
-    ["Distrito", address?.cityDistrict],
-    ["Ciudad/Municipio", address?.city],
-    ["Provincia", address?.province],
-    ["País", address?.country],
-  ];
-  const rawAddress = address?.rawAddress || null;
-
-  nominatimDebug.hidden = false;
-  nominatimDebugContent.innerHTML = `
-    <dl class="nominatim-debug-grid">
-      ${rows
-        .map(
-          ([label, value]) => `
-            <div>
-              <dt>${escapeHtml(label)}</dt>
-              <dd>${escapeHtml(value === undefined || value === null || value === "" ? "—" : String(value))}</dd>
-            </div>
-          `
-        )
-        .join("")}
-    </dl>
-    <details class="nominatim-raw">
-      <summary>Ver campos crudos de address</summary>
-      <pre>${escapeHtml(rawAddress ? JSON.stringify(rawAddress, null, 2) : "Sin address devuelto por Nominatim")}</pre>
-    </details>
-  `;
 }
 
 // Pide al backend que resuelva la URL de Maps y devuelva coordenadas y dirección postal.

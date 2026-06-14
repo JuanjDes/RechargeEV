@@ -171,60 +171,6 @@ button:disabled {
   color: #f9fafb;
 }
 
-.nominatim-debug {
-  border-color: #2563eb;
-  background: #172554;
-}
-
-.nominatim-debug h2 {
-  margin-top: 0;
-}
-
-.nominatim-debug-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-}
-
-.nominatim-debug-grid div {
-  padding: 10px;
-  border: 1px solid rgb(191 219 254 / 0.25);
-  border-radius: 10px;
-  background: rgb(15 23 42 / 0.45);
-}
-
-.nominatim-debug-grid dt {
-  color: #bfdbfe;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.nominatim-debug-grid dd {
-  margin: 4px 0 0;
-  overflow-wrap: anywhere;
-}
-
-.nominatim-raw {
-  margin-top: 12px;
-}
-
-.nominatim-raw summary {
-  cursor: pointer;
-  color: #bfdbfe;
-  font-weight: 700;
-}
-
-.nominatim-raw pre {
-  max-height: 260px;
-  overflow: auto;
-  padding: 12px;
-  border-radius: 10px;
-  background: #0f172a;
-  color: #e5e7eb;
-  white-space: pre-wrap;
-}
-
 .estado {
   display: inline-block;
   padding: 4px 10px;
@@ -321,10 +267,6 @@ button:disabled {
   }
 
   .actions {
-    grid-template-columns: 1fr;
-  }
-
-  .nominatim-debug-grid {
     grid-template-columns: 1fr;
   }
 }
