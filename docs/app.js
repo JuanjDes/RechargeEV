@@ -10,6 +10,12 @@ const cancelEditButton = document.getElementById("cancelEditButton");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
+const STATE_COLORS = {
+  pendiente: "#facc15",
+  cargando: "#38bdf8",
+  cargado: "#22c55e",
+  incidencia: "#ef4444",
+};
 const DEFAULT_MAP_CENTER = [40.4168, -3.7038];
 const DEFAULT_MAP_ZOOM = 6;
 let editingVehicleId = null;
@@ -268,6 +274,19 @@ function initMap() {
   }).addTo(vehiclesMap);
 }
 
+// Crea un marcador con el mismo color visual que el estado del vehículo.
+function createVehicleMarkerIcon(estado) {
+  const markerColor = STATE_COLORS[estado] || STATE_COLORS.pendiente;
+
+  return L.divIcon({
+    className: "vehicle-map-marker-wrapper",
+    html: `<span class="vehicle-map-marker" style="--marker-color: ${markerColor}"></span>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -28],
+  });
+}
+
 // Fuerza a Leaflet a recalcular el tamaño real del contenedor.
 function refreshMapSize() {
   if (!vehiclesMap) return;
@@ -294,7 +313,9 @@ function renderVehicleMarkers(vehicles) {
       </a>
     `;
 
-    L.marker([vehicle.coordinates.lat, vehicle.coordinates.lng])
+    L.marker([vehicle.coordinates.lat, vehicle.coordinates.lng], {
+      icon: createVehicleMarkerIcon(vehicle.estado),
+    })
       .bindPopup(popupContent)
       .addTo(markersLayer);
   });

@@ -133,6 +133,32 @@ button:disabled {
   background: #111827;
 }
 
+.vehicle-map-marker-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+.vehicle-map-marker {
+  position: relative;
+  display: block;
+  width: 28px;
+  height: 28px;
+  background: var(--marker-color, #38bdf8);
+  border: 3px solid #ffffff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.45);
+  transform: rotate(-45deg);
+}
+
+.vehicle-map-marker::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  background: #ffffff;
+  border-radius: 50%;
+  opacity: 0.9;
+}
+
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
   background: #1f2937;
