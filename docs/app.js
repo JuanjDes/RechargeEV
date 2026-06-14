@@ -82,14 +82,15 @@ async function createVehicle(vehicle) {
     throw new Error("El enlace debe empezar por https://");
   }
 
-  const coordinates = await analyzeMapsUrl(mapsUrl);
+  const mapsAnalysis = await analyzeMapsUrl(mapsUrl);
   const vehicles = readVehicles();
   const now = new Date().toISOString();
   const newVehicle = {
     id: createId(),
     matricula,
     mapsUrl,
-    coordinates,
+    coordinates: mapsAnalysis.coordinates,
+    address: mapsAnalysis.address,
     estado: "pendiente",
     notas,
     createdAt: now,
@@ -144,8 +145,10 @@ async function updateVehicle(id, data) {
       throw new Error("El enlace debe empezar por https://");
     }
 
-    if (mapsUrlChanged || !isValidCoordinates(vehicle.coordinates)) {
-      vehicle.coordinates = await analyzeMapsUrl(mapsUrl);
+    if (mapsUrlChanged || !isValidCoordinates(vehicle.coordinates) || !hasAddressData(vehicle.address)) {
+      const mapsAnalysis = await analyzeMapsUrl(mapsUrl);
+      vehicle.coordinates = mapsAnalysis.coordinates;
+      vehicle.address = mapsAnalysis.address;
     }
 
     vehicle.mapsUrl = mapsUrl;
@@ -189,7 +192,25 @@ function isValidCoordinates(coordinates) {
   );
 }
 
-// Pide al backend que resuelva la URL de Maps y devuelva coordenadas.
+// Comprueba que la dirección tenga al menos un dato útil para mostrar.
+function hasAddressData(address) {
+  return Boolean(address && (address.road || address.postcode || address.displayName));
+}
+
+// Formatea la calle/dirección principal para mostrarla en la tarjeta.
+function formatStreetAddress(address) {
+  if (!hasAddressData(address)) return "";
+
+  const streetParts = [address.road, address.houseNumber].filter(Boolean);
+
+  if (streetParts.length > 0) {
+    return streetParts.join(", ");
+  }
+
+  return address.displayName || "";
+}
+
+// Pide al backend que resuelva la URL de Maps y devuelva coordenadas y dirección postal.
 async function analyzeMapsUrl(mapsUrl) {
   const response = await fetch(MAPS_ANALYSIS_API_URL, {
     method: "POST",
@@ -209,7 +230,10 @@ async function analyzeMapsUrl(mapsUrl) {
     throw new Error(result.message || "No se pudieron obtener coordenadas de esta URL de Google Maps");
   }
 
-  return result.coordinates;
+  return {
+    coordinates: result.coordinates,
+    address: result.address || null,
+  };
 }
 
 // Crea el mapa una sola vez y prepara la capa de marcadores.
@@ -278,6 +302,16 @@ function renderVehicles(vehicles) {
   vehicles.forEach((vehicle) => {
     const card = document.createElement("article");
     card.className = "vehicle-card";
+    const streetAddress = formatStreetAddress(vehicle.address);
+    const postcode = vehicle.address?.postcode || "";
+    const addressHtml = hasAddressData(vehicle.address)
+      ? `
+          <p class="vehicle-address">
+            ${streetAddress ? `<span><strong>Dirección:</strong> ${escapeHtml(streetAddress)}</span>` : ""}
+            ${postcode ? `<span><strong>CP:</strong> ${escapeHtml(postcode)}</span>` : ""}
+          </p>
+        `
+      : "";
 
     card.innerHTML = `
       <details class="vehicle-actions-dropdown">
@@ -290,6 +324,7 @@ function renderVehicles(vehicles) {
             </span>
           </div>
           <p>${escapeHtml(vehicle.notas || "Sin notas")}</p>
+          ${addressHtml}
         </summary>
 
         <div class="actions">
@@ -331,7 +366,7 @@ vehicleForm.addEventListener("submit", async (event) => {
 
   try {
     vehicleSubmitButton.disabled = true;
-    vehicleSubmitButton.textContent = "Obteniendo coordenadas...";
+    vehicleSubmitButton.textContent = "Obteniendo ubicación...";
 
     if (editingVehicleId) {
       await updateVehicle(editingVehicleId, { matricula, mapsUrl, notas });

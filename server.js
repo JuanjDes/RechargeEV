@@ -50,6 +50,62 @@ function extractCoordinates(text) {
   return null;
 }
 
+function buildAddressPayload(nominatimResult) {
+  const address = nominatimResult?.address || {};
+  const road = address.road || address.pedestrian || address.footway || address.path || address.cycleway || "";
+  const houseNumber = address.house_number || "";
+  const city = address.city || address.town || address.village || address.municipality || "";
+  const province = address.province || address.county || address.state || "";
+
+  return {
+    road,
+    houseNumber,
+    postcode: address.postcode || "",
+    city,
+    province,
+    country: address.country || "",
+    displayName: nominatimResult?.display_name || "",
+  };
+}
+
+async function reverseGeocodeCoordinates(coordinates) {
+  if (!coordinates) return null;
+
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", String(coordinates.lat));
+  url.searchParams.set("lon", String(coordinates.lng));
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("accept-language", "es");
+
+  try {
+    const response = await fetch(url.href, {
+      headers: {
+        "User-Agent": "RecargasVoltio/1.0 (reverse-geocoding)",
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const result = await response.json();
+    return buildAddressPayload(result);
+  } catch {
+    return null;
+  }
+}
+
+async function buildMapsAnalysisResponse(coordinates, finalUrl) {
+  const address = await reverseGeocodeCoordinates(coordinates);
+
+  return {
+    found: true,
+    coordinates,
+    finalUrl,
+    address,
+  };
+}
+
 app.post("/api/analyze-maps-url", async (req, res) => {
   const mapsUrl = typeof req.body?.url === "string" ? req.body.url.trim() : "";
 
@@ -83,7 +139,7 @@ app.post("/api/analyze-maps-url", async (req, res) => {
 
     // Primero intenta extraer coordenadas desde la URL final.
     if (finalUrlCoordinates) {
-      return res.json({ found: true, coordinates: finalUrlCoordinates, finalUrl });
+      return res.json(await buildMapsAnalysisResponse(finalUrlCoordinates, finalUrl));
     }
 
     // Si la URL no las contiene, busca también dentro del HTML recibido.
@@ -91,7 +147,7 @@ app.post("/api/analyze-maps-url", async (req, res) => {
     const bodyCoordinates = extractCoordinates(body);
 
     if (bodyCoordinates) {
-      return res.json({ found: true, coordinates: bodyCoordinates, finalUrl });
+      return res.json(await buildMapsAnalysisResponse(bodyCoordinates, finalUrl));
     }
 
     return res.json({ found: false, finalUrl, message: "No se encontraron coordenadas en la URL analizada" });
