@@ -3,6 +3,7 @@ const vehicleList = document.getElementById("vehicleList");
 const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
 const deleteAllVehiclesButton = document.getElementById("deleteAllVehiclesButton");
+const sortByDistanceButton = document.getElementById("sortByDistanceButton");
 const mapToggle = document.getElementById("mapToggle");
 const mapContent = document.getElementById("mapContent");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
@@ -204,6 +205,104 @@ function isValidCoordinates(coordinates) {
   );
 }
 
+// Convierte grados a radianes para calcular distancias geográficas.
+function toRadians(degrees) {
+  return degrees * (Math.PI / 180);
+}
+
+// Calcula la distancia aproximada en kilómetros entre dos coordenadas lat/lng.
+function calculateDistanceKm(origin, destination) {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(destination.lat - origin.lat);
+  const dLng = toRadians(destination.lng - origin.lng);
+  const originLat = toRadians(origin.lat);
+  const destinationLat = toRadians(destination.lat);
+
+  const haversineValue =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(originLat) * Math.cos(destinationLat) * Math.sin(dLng / 2) ** 2;
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversineValue), Math.sqrt(1 - haversineValue));
+}
+
+// Formatea una distancia para mostrarla de forma legible en la tarjeta.
+function formatDistanceKm(distanceKm) {
+  if (!Number.isFinite(distanceKm)) return "";
+
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)} m`;
+  }
+
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`;
+}
+
+// Pide al navegador la ubicación actual solo cuando el usuario pulsa ordenar.
+function getCurrentUserCoordinates() {
+  if (!navigator.geolocation) {
+    return Promise.reject(new Error("Tu navegador no permite obtener la ubicación actual"));
+  }
+
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coordinates = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+
+        if (!isValidCoordinates(coordinates)) {
+          reject(new Error("No se pudo obtener una ubicación válida"));
+          return;
+        }
+
+        resolve(coordinates);
+      },
+      () => reject(new Error("No se pudo obtener tu ubicación. Revisa los permisos del navegador.")),
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  });
+}
+
+// Ordena creando una ruta: primero el más cercano al usuario y después el más cercano al anterior.
+function sortVehiclesByNearestRoute(vehicles, startCoordinates) {
+  const pendingVehicles = vehicles
+    .filter((vehicle) => isValidCoordinates(vehicle.coordinates))
+    .map((vehicle) => ({ ...vehicle }));
+  const vehiclesWithoutCoordinates = vehicles
+    .filter((vehicle) => !isValidCoordinates(vehicle.coordinates))
+    .map((vehicle) => ({ ...vehicle, routeDistanceKm: null, routeDistanceLabel: "Sin coordenadas" }));
+  const orderedVehicles = [];
+  let currentCoordinates = startCoordinates;
+
+  while (pendingVehicles.length > 0) {
+    let nearestIndex = 0;
+    let nearestDistanceKm = calculateDistanceKm(currentCoordinates, pendingVehicles[0].coordinates);
+
+    for (let index = 1; index < pendingVehicles.length; index += 1) {
+      const distanceKm = calculateDistanceKm(currentCoordinates, pendingVehicles[index].coordinates);
+
+      if (distanceKm < nearestDistanceKm) {
+        nearestIndex = index;
+        nearestDistanceKm = distanceKm;
+      }
+    }
+
+    const [nearestVehicle] = pendingVehicles.splice(nearestIndex, 1);
+    orderedVehicles.push({
+      ...nearestVehicle,
+      routeDistanceKm: nearestDistanceKm,
+      routeDistanceLabel: orderedVehicles.length === 0 ? "desde tu posición" : "desde el vehículo anterior",
+    });
+    currentCoordinates = nearestVehicle.coordinates;
+  }
+
+  return [...orderedVehicles, ...vehiclesWithoutCoordinates];
+}
+
 // Comprueba que la dirección tenga al menos un dato útil para mostrar.
 function hasAddressData(address) {
   return Boolean(address && (address.road || address.postcode || address.displayName));
@@ -357,6 +456,20 @@ function renderVehicles(vehicles) {
           </p>
         `
       : "";
+    const routeDistanceHtml = Number.isFinite(vehicle.routeDistanceKm)
+      ? `
+          <p class="vehicle-route-distance">
+            <strong>Distancia:</strong> ${escapeHtml(formatDistanceKm(vehicle.routeDistanceKm))}
+            ${escapeHtml(vehicle.routeDistanceLabel || "")}
+          </p>
+        `
+      : vehicle.routeDistanceLabel
+        ? `
+            <p class="vehicle-route-distance vehicle-route-distance-muted">
+              ${escapeHtml(vehicle.routeDistanceLabel)}
+            </p>
+          `
+        : "";
 
     card.innerHTML = `
       <details class="vehicle-actions-dropdown">
@@ -369,6 +482,7 @@ function renderVehicles(vehicles) {
             </span>
           </div>
           <p>${escapeHtml(vehicle.notas || "Sin notas")}</p>
+          ${routeDistanceHtml}
           ${addressHtml}
         </summary>
 
@@ -499,6 +613,38 @@ deleteAllVehiclesButton.addEventListener("keydown", (event) => {
 
   event.preventDefault();
   deleteAllVehiclesButton.click();
+});
+
+sortByDistanceButton.addEventListener("click", async (event) => {
+  event.stopPropagation();
+
+  try {
+    sortByDistanceButton.setAttribute("aria-disabled", "true");
+    sortByDistanceButton.textContent = "Obteniendo ubicación...";
+
+    const vehicles = readVehicles();
+
+    if (vehicles.length === 0) {
+      return;
+    }
+
+    const userCoordinates = await getCurrentUserCoordinates();
+    const sortedVehicles = sortVehiclesByNearestRoute(vehicles, userCoordinates);
+    renderVehicles(sortedVehicles);
+    renderVehicleMarkers(sortedVehicles);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    sortByDistanceButton.removeAttribute("aria-disabled");
+    sortByDistanceButton.textContent = "Ordenar por cercanía";
+  }
+});
+
+sortByDistanceButton.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+
+  event.preventDefault();
+  sortByDistanceButton.click();
 });
 
 // Muestra u oculta el mapa de vehículos.

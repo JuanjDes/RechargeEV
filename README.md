@@ -23,6 +23,10 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 - Ver todos los vehículos registrados.
 - Mostrar u ocultar el listado de vehículos con contador.
 - Ver dirección, CP y localidad en la tarjeta de cada vehículo cuando estén disponibles.
+- Ordenar manualmente los vehículos por cercanía usando tu ubicación actual:
+  - primero el vehículo más cercano a tu posición,
+  - después el más cercano al vehículo anterior,
+  - y así sucesivamente.
 - Cambiar el estado de cada vehículo:
   - 🟡 `pendiente`
   - 🔵 `cargando`
@@ -43,7 +47,7 @@ La app está organizada en una única pantalla:
 
 1. **Formulario superior** para registrar un vehículo.
 2. **Mapa interactivo** con la posición de los vehículos registrados.
-3. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad y acciones rápidas.
+3. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
 4. **Botones grandes** para editar, abrir Maps, marcar estados, borrar un vehículo o borrar todos durante el turno.
 
 ---
@@ -123,6 +127,25 @@ recargasVoltio.vehiculos
 No hay API de datos ni escritura en archivos JSON para guardar vehículos. Cada navegador/dispositivo mantiene su propia lista local.
 
 La API del servidor se usa sólo para analizar enlaces de Google Maps y devolver coordenadas; no persiste datos.
+
+## Ordenación por cercanía
+
+El listado incluye el botón **Ordenar por cercanía**. Al pulsarlo, la aplicación solicita permiso para obtener tu ubicación actual mediante la API de geolocalización del navegador.
+
+Con esa posición inicial, los vehículos se ordenan usando un criterio de **vecino más cercano**:
+
+1. Se selecciona primero el vehículo más cercano a tu ubicación.
+2. Después se selecciona el vehículo no visitado más cercano al vehículo anterior.
+3. El proceso se repite hasta ordenar toda la lista.
+
+Cuando se aplica este orden, cada tarjeta muestra una distancia aproximada:
+
+- `desde tu posición` para el primer vehículo.
+- `desde el vehículo anterior` para los siguientes.
+
+Los vehículos sin coordenadas válidas se mantienen al final del listado como **Sin coordenadas**.
+
+Esta ordenación sólo cambia la vista actual: no reescribe el orden guardado en `localStorage`. Si se rechaza el permiso de ubicación o el navegador no puede obtenerla, se muestra un aviso y la lista permanece sin cambios.
 
 ### Ejemplo de vehículo
 
@@ -227,10 +250,11 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 6. Comprueba que, si la geocodificación inversa devuelve datos, se muestran dirección, CP y localidad/zona en la tarjeta.
 7. Edita el vehículo y comprueba que se actualizan sus datos, incluida la dirección si cambia el enlace de Maps.
 8. Cambia su estado a `cargando`, `cargado` o `incidencia`.
-9. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
-10. Borra un vehículo y verifica que desaparece del listado y del mapa.
-11. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
-12. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
+9. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
+10. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
+11. Borra un vehículo y verifica que desaparece del listado y del mapa.
+12. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
+13. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 
 ---
 

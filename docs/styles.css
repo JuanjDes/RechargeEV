@@ -40,11 +40,29 @@ h2 {
   line-height: 1;
 }
 
+.sort-by-distance-button {
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sort-by-distance-button:hover,
+.sort-by-distance-button:focus-visible,
 .delete-all-vehicles-button:hover,
 .delete-all-vehicles-button:focus-visible {
   filter: brightness(1.08);
   outline: 2px solid #fecaca;
   outline-offset: 2px;
+}
+
+.sort-by-distance-button[aria-disabled="true"] {
+  cursor: wait;
+  filter: grayscale(0.35);
+  opacity: 0.75;
 }
 
 .delete-all-vehicles-button[hidden] {
@@ -221,6 +239,19 @@ button:disabled {
 
 .vehicle-address strong {
   color: #f9fafb;
+}
+
+.vehicle-route-distance {
+  color: #bbf7d0;
+  font-size: 0.95rem;
+}
+
+.vehicle-route-distance strong {
+  color: #f9fafb;
+}
+
+.vehicle-route-distance-muted {
+  color: #fbbf24;
 }
 
 .estado {
