@@ -295,7 +295,7 @@ function sortVehiclesByNearestRoute(vehicles, startCoordinates) {
     orderedVehicles.push({
       ...nearestVehicle,
       routeDistanceKm: nearestDistanceKm,
-      routeDistanceLabel: orderedVehicles.length === 0 ? "desde tu posición" : "desde el vehículo anterior",
+      routeDistanceLabel: orderedVehicles.length === 0 ? "desde posición" : "desde anterior",
     });
     currentCoordinates = nearestVehicle.coordinates;
   }
@@ -525,7 +525,7 @@ vehicleForm.addEventListener("submit", async (event) => {
 
   try {
     vehicleSubmitButton.disabled = true;
-    vehicleSubmitButton.textContent = "Obteniendo ubicación...";
+    vehicleSubmitButton.textContent = "Ubicación...";
 
     if (editingVehicleId) {
       await updateVehicle(editingVehicleId, { matricula, mapsUrl, notas });
@@ -620,7 +620,7 @@ sortByDistanceButton.addEventListener("click", async (event) => {
 
   try {
     sortByDistanceButton.setAttribute("aria-disabled", "true");
-    sortByDistanceButton.textContent = "Obteniendo ubicación...";
+    sortByDistanceButton.textContent = "Ubicación...";
 
     const vehicles = readVehicles();
 
@@ -636,7 +636,7 @@ sortByDistanceButton.addEventListener("click", async (event) => {
     alert(error.message);
   } finally {
     sortByDistanceButton.removeAttribute("aria-disabled");
-    sortByDistanceButton.textContent = "Ordenar por cercanía";
+    sortByDistanceButton.textContent = "Ordenar";
   }
 });
 
