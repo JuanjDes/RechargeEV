@@ -36,6 +36,8 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 - Abrir la ubicación directamente en Google Maps.
 - Borrar vehículos cuando ya no sean necesarios.
 - Borrar todos los vehículos de una sola vez con confirmación previa.
+- Guardar la lista actual completa con fecha y hora para consultarla después.
+- Ver, restaurar o borrar listas históricas guardadas.
 - Guardado local en el navegador con `localStorage`.
 - Diseño responsive pensado para móvil y uso nocturno.
 
@@ -48,7 +50,8 @@ La app está organizada en una única pantalla:
 1. **Formulario superior** para registrar un vehículo.
 2. **Mapa interactivo** con la posición de los vehículos registrados.
 3. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
-4. **Botones grandes** para editar, abrir Maps, marcar estados, borrar un vehículo o borrar todos durante el turno.
+4. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
+5. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, borrar un vehículo o borrar todos durante el turno.
 
 ---
 
@@ -123,6 +126,14 @@ La aplicación guarda los vehículos directamente en `localStorage`, usando la c
 ```text
 recargasVoltio.vehiculos
 ```
+
+Las listas históricas guardadas se almacenan en otra clave de `localStorage`:
+
+```text
+recargasVoltio.listasGuardadas
+```
+
+Cada lista guardada contiene un identificador, la fecha/hora `createdAt` y una copia completa de los vehículos que estaban en la lista activa en ese momento. Consultar una lista guardada no modifica la lista actual. Si se usa **Restaurar como actual**, la aplicación pide confirmación y sustituye la lista activa por una copia de esa lista histórica.
 
 No hay API de datos ni escritura en archivos JSON para guardar vehículos. Cada navegador/dispositivo mantiene su propia lista local.
 
@@ -253,8 +264,12 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 9. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
 10. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
 11. Borra un vehículo y verifica que desaparece del listado y del mapa.
-12. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
-13. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
+12. Pulsa **Guardar lista** y comprueba que aparece una entrada en **Listas guardadas** con fecha/hora y número de vehículos.
+13. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
+14. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
+15. Borra una lista guardada y verifica que desaparece del histórico.
+16. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
+17. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 
 ---
 

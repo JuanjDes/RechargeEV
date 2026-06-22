@@ -3,12 +3,17 @@ const vehicleList = document.getElementById("vehicleList");
 const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
 const deleteAllVehiclesButton = document.getElementById("deleteAllVehiclesButton");
+const saveVehicleListButton = document.getElementById("saveVehicleListButton");
 const sortByDistanceButton = document.getElementById("sortByDistanceButton");
 const mapToggle = document.getElementById("mapToggle");
 const mapContent = document.getElementById("mapContent");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
+const savedListsToggle = document.getElementById("savedListsToggle");
+const savedLists = document.getElementById("savedLists");
+const savedListsCount = document.getElementById("savedListsCount");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
+const SAVED_LISTS_STORAGE_KEY = "recargasVoltio.listasGuardadas";
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 const STATE_COLORS = {
@@ -55,6 +60,75 @@ function readVehicles() {
 // Persiste toda la lista en localStorage.
 function writeVehicles(vehicles) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles));
+}
+
+// Lee el historial de listas guardadas en localStorage de forma segura.
+function readSavedLists() {
+  const storedLists = localStorage.getItem(SAVED_LISTS_STORAGE_KEY);
+
+  if (!storedLists) return [];
+
+  try {
+    const lists = JSON.parse(storedLists);
+    return Array.isArray(lists) ? lists : [];
+  } catch {
+    return [];
+  }
+}
+
+// Persiste el historial completo de listas guardadas.
+function writeSavedLists(lists) {
+  localStorage.setItem(SAVED_LISTS_STORAGE_KEY, JSON.stringify(lists));
+}
+
+// Crea una copia independiente para que las listas históricas no cambien al editar la lista activa.
+function cloneVehicles(vehicles) {
+  return JSON.parse(JSON.stringify(vehicles));
+}
+
+// Guarda una instantánea completa de la lista actual con fecha y hora de creación.
+function saveCurrentVehicleList() {
+  const vehicles = readVehicles();
+
+  if (vehicles.length === 0) {
+    throw new Error("No hay vehículos para guardar en una lista");
+  }
+
+  const now = new Date().toISOString();
+  const savedList = {
+    id: createId(),
+    createdAt: now,
+    vehicles: cloneVehicles(vehicles),
+  };
+  const savedLists = readSavedLists();
+
+  savedLists.unshift(savedList);
+  writeSavedLists(savedLists);
+
+  return savedList;
+}
+
+// Restaura una lista guardada como lista activa, preservando su contenido original.
+function restoreSavedList(id) {
+  const savedList = readSavedLists().find((item) => item.id === id);
+
+  if (!savedList) {
+    throw new Error("Lista guardada no encontrada");
+  }
+
+  writeVehicles(cloneVehicles(savedList.vehicles || []));
+}
+
+// Borra una lista histórica concreta.
+function deleteSavedList(id) {
+  const lists = readSavedLists();
+  const filteredLists = lists.filter((item) => item.id !== id);
+
+  if (filteredLists.length === lists.length) {
+    throw new Error("Lista guardada no encontrada");
+  }
+
+  writeSavedLists(filteredLists);
 }
 
 // Busca un vehículo concreto dentro del almacenamiento local.
@@ -234,6 +308,18 @@ function formatDistanceKm(distanceKm) {
   }
 
   return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`;
+}
+
+// Formatea fechas ISO con día y hora local para identificar listas guardadas.
+function formatDateTime(isoDate) {
+  const date = new Date(isoDate);
+
+  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+
+  return new Intl.DateTimeFormat("es-ES", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
 }
 
 // Pide al navegador la ubicación actual solo cuando el usuario pulsa ordenar.
@@ -504,6 +590,72 @@ function renderVehicles(vehicles) {
   });
 }
 
+// Pinta el histórico de listas guardadas y sus vehículos en modo consulta.
+function renderSavedLists(lists) {
+  savedListsCount.textContent = lists.length;
+  savedLists.innerHTML = "";
+
+  if (lists.length === 0) {
+    savedLists.innerHTML = `<p class="empty">No hay listas guardadas todavía.</p>`;
+    return;
+  }
+
+  lists.forEach((savedList) => {
+    const item = document.createElement("article");
+    item.className = "saved-list-card";
+    const vehicles = Array.isArray(savedList.vehicles) ? savedList.vehicles : [];
+    const vehiclesHtml = vehicles.length > 0
+      ? vehicles
+          .map((vehicle) => {
+            const streetAddress = formatStreetAddress(vehicle.address);
+            const postcode = vehicle.address?.postcode || "";
+            const locality = formatLocality(vehicle.address);
+            const postcodeLocality = [postcode, locality].filter(Boolean).join(" · ");
+            const addressLine = [streetAddress, postcodeLocality].filter(Boolean).join(" | ");
+            const estado = ALLOWED_STATES.includes(vehicle.estado) ? vehicle.estado : "pendiente";
+
+            return `
+              <li class="saved-list-vehicle">
+                <div class="saved-list-vehicle-header">
+                  <strong>${escapeHtml(vehicle.matricula || "Sin matrícula")}</strong>
+                  <span class="estado ${escapeHtml(estado)}">${escapeHtml(estado)}</span>
+                </div>
+                ${vehicle.notas ? `<p>${escapeHtml(vehicle.notas)}</p>` : ""}
+                ${addressLine ? `<p class="saved-list-address">${escapeHtml(addressLine)}</p>` : ""}
+                ${vehicle.mapsUrl ? `<a href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">Abrir Maps</a>` : ""}
+              </li>
+            `;
+          })
+          .join("")
+      : `<li class="saved-list-vehicle empty">Lista sin vehículos.</li>`;
+
+    item.innerHTML = `
+      <details class="saved-list-details">
+        <summary>
+          <div class="saved-list-summary">
+            <span>
+              <strong>${escapeHtml(formatDateTime(savedList.createdAt))}</strong>
+              <small>${vehicles.length} vehículo${vehicles.length === 1 ? "" : "s"}</small>
+            </span>
+            <span class="dropdown-arrow" aria-hidden="true">▼</span>
+          </div>
+        </summary>
+
+        <div class="saved-list-actions">
+          <button data-saved-list-id="${escapeHtml(savedList.id)}" data-restore-list="true">Restaurar como actual</button>
+          <button class="delete" data-saved-list-id="${escapeHtml(savedList.id)}" data-delete-list="true">Borrar lista</button>
+        </div>
+
+        <ul class="saved-list-vehicles">
+          ${vehiclesHtml}
+        </ul>
+      </details>
+    `;
+
+    savedLists.appendChild(item);
+  });
+}
+
 // Carga los vehículos guardados y actualiza la interfaz.
 function loadVehicles() {
   try {
@@ -512,6 +664,15 @@ function loadVehicles() {
     renderVehicleMarkers(vehicles);
   } catch (error) {
     vehicleList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+// Carga las listas guardadas y actualiza la interfaz del historial.
+function loadSavedLists() {
+  try {
+    renderSavedLists(readSavedLists());
+  } catch (error) {
+    savedLists.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
   }
 }
 
@@ -615,6 +776,25 @@ deleteAllVehiclesButton.addEventListener("keydown", (event) => {
   deleteAllVehiclesButton.click();
 });
 
+saveVehicleListButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+
+  try {
+    const savedList = saveCurrentVehicleList();
+    loadSavedLists();
+    alert(`Lista guardada: ${formatDateTime(savedList.createdAt)}`);
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+saveVehicleListButton.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+
+  event.preventDefault();
+  saveVehicleListButton.click();
+});
+
 sortByDistanceButton.addEventListener("click", async (event) => {
   event.stopPropagation();
 
@@ -659,7 +839,47 @@ mapToggle.addEventListener("click", () => {
   }
 });
 
+// Muestra u oculta el histórico de listas guardadas.
+savedListsToggle.addEventListener("click", () => {
+  const isExpanded = savedListsToggle.getAttribute("aria-expanded") === "true";
+
+  savedListsToggle.setAttribute("aria-expanded", String(!isExpanded));
+  savedLists.hidden = isExpanded;
+});
+
+// Gestiona acciones de restauración y borrado de listas guardadas.
+savedLists.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+
+  if (!button) return;
+
+  const id = button.dataset.savedListId;
+
+  try {
+    if (button.dataset.restoreList === "true") {
+      const confirmRestore = confirm("¿Restaurar esta lista como lista actual? Se sustituirán los vehículos actuales.");
+      if (!confirmRestore) return;
+
+      restoreSavedList(id);
+      resetVehicleForm();
+      loadVehicles();
+      return;
+    }
+
+    if (button.dataset.deleteList === "true") {
+      const confirmDelete = confirm("¿Borrar esta lista guardada?");
+      if (!confirmDelete) return;
+
+      deleteSavedList(id);
+      loadSavedLists();
+    }
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
 initMap();
 loadVehicles();
+loadSavedLists();
 refreshMapSize();
 window.addEventListener("resize", refreshMapSize);
