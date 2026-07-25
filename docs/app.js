@@ -127,6 +127,83 @@ function cleanText(value, maxLength = 300) {
   return value.trim().slice(0, maxLength);
 }
 
+// Comprueba si una URL pertenece a Google Maps o a sus enlaces cortos habituales.
+function isGoogleMapsUrl(value) {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+
+    return (
+      hostname === "maps.app.goo.gl" ||
+      (hostname === "goo.gl" && url.pathname.startsWith("/maps")) ||
+      hostname === "maps.google.com" ||
+      (hostname.endsWith(".google.com") && url.pathname.startsWith("/maps")) ||
+      (hostname.endsWith(".google.es") && url.pathname.startsWith("/maps"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Extrae el primer enlace de Google Maps desde texto compartido por Android/Chrome.
+function extractGoogleMapsUrlFromText(text) {
+  const cleanedText = cleanText(text, 2000);
+  const urlMatches = cleanedText.match(/https?:\/\/[^\s<>()"']+/gi) || [];
+
+  return urlMatches
+    .map((url) => url.replace(/[.,;:!?]+$/, ""))
+    .find(isGoogleMapsUrl) || "";
+}
+
+// Lee los parámetros recibidos mediante Web Share Target y localiza la URL útil.
+function getSharedGoogleMapsUrl() {
+  const params = new URLSearchParams(window.location.search);
+
+  if (!params.has("title") && !params.has("text") && !params.has("url")) {
+    return "";
+  }
+
+  const candidates = [
+    params.get("url"),
+    params.get("text"),
+    params.get("title"),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const directValue = cleanText(candidate, 1000);
+
+    if (isGoogleMapsUrl(directValue)) {
+      return directValue;
+    }
+
+    const extractedUrl = extractGoogleMapsUrlFromText(directValue);
+
+    if (extractedUrl) {
+      return extractedUrl;
+    }
+  }
+
+  return "";
+}
+
+// Precarga el formulario cuando la PWA se abre como destino de compartir.
+function handleSharedGoogleMapsUrl() {
+  const sharedMapsUrl = getSharedGoogleMapsUrl();
+
+  if (!sharedMapsUrl) return;
+
+  const mapsUrlInput = document.getElementById("mapsUrl");
+  mapsUrlInput.value = sharedMapsUrl;
+  mapsUrlInput.focus();
+  vehicleForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  showAppMessage(
+    "Enlace de Google Maps recibido. Añade la matrícula para guardar el vehículo.",
+    "success"
+  );
+
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.hash}`);
+}
+
 // Genera un identificador único para cada vehículo.
 function createId() {
   if (window.crypto && typeof window.crypto.randomUUID === "function") {
@@ -992,6 +1069,7 @@ initMap();
 createAppMessage();
 createOfflineNotices();
 updateNetworkStatus();
+handleSharedGoogleMapsUrl();
 loadVehicles();
 loadSavedLists();
 refreshMapSize();

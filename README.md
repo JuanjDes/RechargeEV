@@ -36,6 +36,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
   - 🔴 `incidencia`
 - Editar matrícula, enlace de Google Maps y notas de un vehículo existente.
 - Abrir la ubicación directamente en Google Maps.
+- Recibir enlaces compartidos desde Google Maps cuando la app está instalada como PWA.
 - Borrar vehículos cuando ya no sean necesarios.
 - Borrar todos los vehículos de una sola vez con confirmación previa.
 - Guardar la lista actual completa con fecha y hora para consultarla después.
@@ -168,7 +169,21 @@ El manifiesto define:
 - `scope`: `./`
 - `display`: `standalone`
 - iconos de `192x192` y `512x512`
-- `share_target` mediante `GET` para recibir `title`, `text` y `url`, abriendo `./index.html`
+- `share_target` mediante `GET` y `application/x-www-form-urlencoded` para recibir `title`, `text` y `url`, abriendo `./index.html`
+
+### Compartir desde Google Maps
+
+Cuando la PWA está instalada en un navegador compatible, puede aparecer como destino al usar **Compartir** desde Google Maps.
+
+Flujo previsto:
+
+1. Abre una ubicación en Google Maps.
+2. Pulsa **Compartir**.
+3. Selecciona **RechargeEV** como destino.
+4. La app se abrirá y precargará automáticamente el campo **Enlace de Google Maps**.
+5. Introduce la matrícula y pulsa **Añadir vehículo**.
+
+La app revisa los campos compartidos `url`, `text` y `title`, ya que Google Maps puede enviar el enlace en ubicaciones distintas según el dispositivo o navegador. No se crea el vehículo automáticamente porque la matrícula sigue siendo obligatoria y el análisis de coordenadas requiere conexión.
 
 `index.html` enlaza el manifiesto con ruta relativa:
 
@@ -189,7 +204,7 @@ navigator.serviceWorker.register("./service-worker.js")
 El Service Worker crea una caché llamada:
 
 ```text
-rechargeev-v1
+rechargeev-v2
 ```
 
 Y precachea los recursos básicos de la app:
@@ -252,7 +267,7 @@ Después de publicar, conviene revisar en DevTools > **Application**:
 
 - Manifest cargado correctamente.
 - Service Worker registrado y activo.
-- Cache Storage con `rechargeev-v1`.
+- Cache Storage con `rechargeev-v2`.
 - Opción de instalación disponible en el navegador.
 
 Si se publica una nueva versión y el navegador conserva datos antiguos, puede ser útil usar:
@@ -414,11 +429,12 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 16. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
 17. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 18. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-19. Comprueba que existe la caché `rechargeev-v1` en **Cache Storage**.
+19. Comprueba que existe la caché `rechargeev-v2` en **Cache Storage**.
 20. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
 21. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
 22. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
 23. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
+24. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.
 
 ---
 
@@ -438,5 +454,5 @@ Mantener una herramienta personal, ligera y fiable para gestionar recargas de ve
 - Priorizar una interfaz clara, responsive y usable de noche.
 - Validar siempre los datos antes de guardarlos.
 - Mantener rutas relativas (`./...`) en `manifest.json`, `index.html`, `app.js` y `service-worker.js` para conservar compatibilidad con GitHub Pages.
-- Si cambian los assets importantes de la PWA, incrementar la versión de caché, por ejemplo de `rechargeev-v1` a `rechargeev-v2`.
+- Si cambian los assets importantes de la PWA, incrementar la versión de caché, por ejemplo de `rechargeev-v2` a `rechargeev-v3`.
 - Recordar que el backend externo sigue siendo necesario para analizar URLs de Google Maps; la PWA no puede crear coordenadas nuevas completamente offline.
