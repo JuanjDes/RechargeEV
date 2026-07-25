@@ -12,6 +12,7 @@ const cancelEditButton = document.getElementById("cancelEditButton");
 const savedListsToggle = document.getElementById("savedListsToggle");
 const savedLists = document.getElementById("savedLists");
 const savedListsCount = document.getElementById("savedListsCount");
+const appContainer = document.querySelector(".container");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const SAVED_LISTS_STORAGE_KEY = "recargasVoltio.listasGuardadas";
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
@@ -27,6 +28,98 @@ const DEFAULT_MAP_ZOOM = 6;
 let editingVehicleId = null;
 let vehiclesMap = null;
 let markersLayer = null;
+let appMessage = null;
+let appMessageTimeout = null;
+let networkStatusBanner = null;
+let mapOfflineNotice = null;
+
+// Comprueba si el navegador considera que hay conexión disponible.
+function isOnline() {
+  return navigator.onLine;
+}
+
+// Crea el contenedor de mensajes visibles de la aplicación.
+function createAppMessage() {
+  if (appMessage || !appContainer) return;
+
+  appMessage = document.createElement("p");
+  appMessage.className = "app-message";
+  appMessage.setAttribute("role", "status");
+  appMessage.setAttribute("aria-live", "polite");
+  appMessage.hidden = true;
+  appContainer.prepend(appMessage);
+}
+
+// Muestra mensajes dentro de la interfaz para no depender de DevTools ni de alertas del navegador.
+function showAppMessage(message, type = "info", options = {}) {
+  if (!appMessage) return;
+
+  const { persistent = false } = options;
+
+  window.clearTimeout(appMessageTimeout);
+  appMessage.textContent = message;
+  appMessage.className = `app-message app-message-${type}`;
+  appMessage.hidden = false;
+
+  if (!persistent) {
+    appMessageTimeout = window.setTimeout(() => {
+      appMessage.hidden = true;
+    }, 5000);
+  }
+}
+
+// Crea los avisos visuales de modo offline sin depender de cambios en index.html.
+function createOfflineNotices() {
+  if (!networkStatusBanner && appContainer) {
+    networkStatusBanner = document.createElement("p");
+    networkStatusBanner.className = "offline-banner";
+    networkStatusBanner.textContent =
+      "Modo sin conexión: el mapa puede estar limitado y no se pueden analizar nuevos enlaces de Google Maps.";
+    networkStatusBanner.hidden = true;
+    appContainer.prepend(networkStatusBanner);
+  }
+
+  if (!mapOfflineNotice && mapContent) {
+    mapOfflineNotice = document.createElement("p");
+    mapOfflineNotice.className = "map-offline-notice";
+    mapOfflineNotice.textContent =
+      "Mapa limitado sin conexión. Solo se mostrarán elementos que ya estén disponibles en caché.";
+    mapOfflineNotice.hidden = true;
+    mapContent.prepend(mapOfflineNotice);
+  }
+}
+
+// Actualiza los avisos y textos de la interfaz cuando cambia la conexión.
+function updateNetworkStatus() {
+  const offline = !isOnline();
+
+  if (networkStatusBanner) {
+    networkStatusBanner.hidden = !offline;
+  }
+
+  if (mapOfflineNotice) {
+    mapOfflineNotice.hidden = !offline;
+  }
+
+  if (!editingVehicleId) {
+    vehicleSubmitButton.textContent = offline ? "Añadir vehículo (requiere internet)" : "Añadir vehículo";
+  }
+
+  showAppMessage(
+    offline ? "Estás sin conexión. Algunas funciones requieren internet." : "Conexión restaurada.",
+    offline ? "warning" : "success",
+    { persistent: offline }
+  );
+}
+
+// Informa al usuario cuando intenta una acción que necesita conexión.
+function assertOnlineForMapsAnalysis() {
+  if (!isOnline()) {
+    throw new Error(
+      "No se pueden analizar enlaces de Google Maps sin conexión. Vuelve a intentarlo cuando tengas internet."
+    );
+  }
+}
 
 // Limpia textos de usuario y limita su tamaño antes de guardarlos.
 function cleanText(value, maxLength = 300) {
@@ -141,6 +234,10 @@ function setFormMode(mode) {
   const isEditing = mode === "edit";
   vehicleSubmitButton.textContent = isEditing ? "Guardar cambios" : "Añadir vehículo";
   cancelEditButton.hidden = !isEditing;
+
+  if (!isEditing) {
+    updateNetworkStatus();
+  }
 }
 
 // Limpia el formulario y vuelve al modo creación.
@@ -163,6 +260,8 @@ async function createVehicle(vehicle) {
   if (!mapsUrl.startsWith("https://")) {
     throw new Error("El enlace debe empezar por https://");
   }
+
+  assertOnlineForMapsAnalysis();
 
   const mapsAnalysis = await analyzeMapsUrl(mapsUrl);
   const vehicles = readVehicles();
@@ -228,6 +327,8 @@ async function updateVehicle(id, data) {
     }
 
     if (mapsUrlChanged || !isValidCoordinates(vehicle.coordinates) || !hasAddressData(vehicle.address)) {
+      assertOnlineForMapsAnalysis();
+
       const mapsAnalysis = await analyzeMapsUrl(mapsUrl);
       vehicle.coordinates = mapsAnalysis.coordinates;
       vehicle.address = mapsAnalysis.address;
@@ -424,13 +525,19 @@ function formatLocality(address) {
 
 // Pide al backend que resuelva la URL de Maps y devuelva coordenadas y dirección postal.
 async function analyzeMapsUrl(mapsUrl) {
-  const response = await fetch(MAPS_ANALYSIS_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url: mapsUrl }),
-  });
+  let response;
+
+  try {
+    response = await fetch(MAPS_ANALYSIS_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url: mapsUrl }),
+    });
+  } catch {
+    throw new Error("No se pudo conectar con el servidor para analizar el enlace de Maps.");
+  }
 
   const result = await response.json();
 
@@ -664,6 +771,7 @@ function loadVehicles() {
     renderVehicleMarkers(vehicles);
   } catch (error) {
     vehicleList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+    showAppMessage(error.message, "error");
   }
 }
 
@@ -673,6 +781,7 @@ function loadSavedLists() {
     renderSavedLists(readSavedLists());
   } catch (error) {
     savedLists.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+    showAppMessage(error.message, "error");
   }
 }
 
@@ -697,10 +806,11 @@ vehicleForm.addEventListener("submit", async (event) => {
     resetVehicleForm();
     loadVehicles();
   } catch (error) {
-    alert(error.message);
+    showAppMessage(error.message, "error");
   } finally {
     vehicleSubmitButton.disabled = false;
     setFormMode(editingVehicleId ? "edit" : "create");
+    updateNetworkStatus();
   }
 });
 
@@ -746,7 +856,7 @@ vehicleList.addEventListener("click", async (event) => {
 
     loadVehicles();
   } catch (error) {
-    alert(error.message);
+    showAppMessage(error.message, "error");
   }
 });
 
@@ -782,9 +892,9 @@ saveVehicleListButton.addEventListener("click", (event) => {
   try {
     const savedList = saveCurrentVehicleList();
     loadSavedLists();
-    alert(`Lista guardada: ${formatDateTime(savedList.createdAt)}`);
+    showAppMessage(`Lista guardada: ${formatDateTime(savedList.createdAt)}`, "success");
   } catch (error) {
-    alert(error.message);
+    showAppMessage(error.message, "error");
   }
 });
 
@@ -813,7 +923,7 @@ sortByDistanceButton.addEventListener("click", async (event) => {
     renderVehicles(sortedVehicles);
     renderVehicleMarkers(sortedVehicles);
   } catch (error) {
-    alert(error.message);
+    showAppMessage(error.message, "error");
   } finally {
     sortByDistanceButton.removeAttribute("aria-disabled");
     sortByDistanceButton.textContent = "Ordenar";
@@ -874,12 +984,32 @@ savedLists.addEventListener("click", (event) => {
       loadSavedLists();
     }
   } catch (error) {
-    alert(error.message);
+    showAppMessage(error.message, "error");
   }
 });
 
 initMap();
+createAppMessage();
+createOfflineNotices();
+updateNetworkStatus();
 loadVehicles();
 loadSavedLists();
 refreshMapSize();
 window.addEventListener("resize", refreshMapSize);
+window.addEventListener("online", updateNetworkStatus);
+window.addEventListener("offline", updateNetworkStatus);
+
+// Registra el Service Worker cuando el navegador lo soporta.
+// Se usa una ruta relativa para mantener compatibilidad con GitHub Pages.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then((registration) => {
+        console.log("Service Worker registrado correctamente:", registration.scope);
+      })
+      .catch((error) => {
+        console.warn("No se pudo registrar el Service Worker:", error);
+      });
+  });
+}

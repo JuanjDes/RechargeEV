@@ -128,6 +128,62 @@ h2 {
   margin-bottom: 16px;
 }
 
+.offline-banner,
+.map-offline-notice,
+.app-message {
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  background: #451a03;
+  color: #fffbeb;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.app-message {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.app-message-info {
+  border-color: #38bdf8;
+  background: #082f49;
+  color: #e0f2fe;
+}
+
+.app-message-success {
+  border-color: #22c55e;
+  background: #052e16;
+  color: #dcfce7;
+}
+
+.app-message-warning {
+  border-color: #f59e0b;
+  background: #451a03;
+  color: #fffbeb;
+}
+
+.app-message-error {
+  border-color: #ef4444;
+  background: #450a0a;
+  color: #fee2e2;
+}
+
+.offline-banner {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.map-offline-notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+}
+
+.offline-banner[hidden],
+.map-offline-notice[hidden],
+.app-message[hidden] {
+  display: none;
+}
+
 form {
   display: grid;
   gap: 12px;
