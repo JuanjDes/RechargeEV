@@ -32,6 +32,8 @@ let appMessage = null;
 let appMessageTimeout = null;
 let networkStatusBanner = null;
 let mapOfflineNotice = null;
+let isSortByDistanceEnabled = false;
+let lastUserCoordinates = null;
 
 // Comprueba si el navegador considera que hay conexión disponible.
 function isOnline() {
@@ -567,6 +569,21 @@ function sortVehiclesByNearestRoute(vehicles, startCoordinates) {
   return [...orderedVehicles, ...vehiclesWithoutCoordinates];
 }
 
+// Actualiza el aspecto y estado accesible del interruptor de ordenación.
+function updateSortByDistanceButton() {
+  sortByDistanceButton.setAttribute("aria-pressed", String(isSortByDistanceEnabled));
+  sortByDistanceButton.textContent = isSortByDistanceEnabled ? "Ordenar: On" : "Ordenar: Off";
+}
+
+// Devuelve la lista en el modo visual actual: ordenada solo si el interruptor está activado.
+function getVehiclesForCurrentSortMode(vehicles) {
+  if (!isSortByDistanceEnabled || !isValidCoordinates(lastUserCoordinates)) {
+    return vehicles;
+  }
+
+  return sortVehiclesByNearestRoute(vehicles, lastUserCoordinates);
+}
+
 // Comprueba que la dirección tenga al menos un dato útil para mostrar.
 function hasAddressData(address) {
   return Boolean(address && (address.road || address.postcode || address.displayName));
@@ -844,8 +861,10 @@ function renderSavedLists(lists) {
 function loadVehicles() {
   try {
     const vehicles = readVehicles();
-    renderVehicles(vehicles);
-    renderVehicleMarkers(vehicles);
+    const vehiclesToRender = getVehiclesForCurrentSortMode(vehicles);
+
+    renderVehicles(vehiclesToRender);
+    renderVehicleMarkers(vehiclesToRender);
   } catch (error) {
     vehicleList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
     showAppMessage(error.message, "error");
@@ -987,23 +1006,28 @@ sortByDistanceButton.addEventListener("click", async (event) => {
 
   try {
     sortByDistanceButton.setAttribute("aria-disabled", "true");
-    sortByDistanceButton.textContent = "Ubicación...";
+    const nextSortState = !isSortByDistanceEnabled;
 
-    const vehicles = readVehicles();
-
-    if (vehicles.length === 0) {
+    if (!nextSortState) {
+      isSortByDistanceEnabled = false;
+      lastUserCoordinates = null;
+      updateSortByDistanceButton();
+      loadVehicles();
       return;
     }
 
-    const userCoordinates = await getCurrentUserCoordinates();
-    const sortedVehicles = sortVehiclesByNearestRoute(vehicles, userCoordinates);
-    renderVehicles(sortedVehicles);
-    renderVehicleMarkers(sortedVehicles);
+    sortByDistanceButton.textContent = "Ubicación...";
+    lastUserCoordinates = await getCurrentUserCoordinates();
+    isSortByDistanceEnabled = true;
+    updateSortByDistanceButton();
+    loadVehicles();
   } catch (error) {
     showAppMessage(error.message, "error");
+    isSortByDistanceEnabled = false;
+    lastUserCoordinates = null;
   } finally {
     sortByDistanceButton.removeAttribute("aria-disabled");
-    sortByDistanceButton.textContent = "Ordenar";
+    updateSortByDistanceButton();
   }
 });
 
@@ -1068,6 +1092,7 @@ savedLists.addEventListener("click", (event) => {
 initMap();
 createAppMessage();
 createOfflineNotices();
+updateSortByDistanceButton();
 updateNetworkStatus();
 handleSharedGoogleMapsUrl();
 loadVehicles();

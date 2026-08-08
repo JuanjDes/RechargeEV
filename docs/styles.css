@@ -79,6 +79,12 @@ h2 {
   line-height: 1;
 }
 
+.sort-by-distance-button[aria-pressed="true"] {
+  background: #facc15;
+  color: #422006;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
+}
+
 .sort-by-distance-button:hover,
 .sort-by-distance-button:focus-visible,
 .save-vehicle-list-button:hover,
