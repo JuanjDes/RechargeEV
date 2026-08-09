@@ -4,6 +4,9 @@ const vehiclesToggle = document.getElementById("vehiclesToggle");
 const vehiclesCount = document.getElementById("vehiclesCount");
 const deleteAllVehiclesButton = document.getElementById("deleteAllVehiclesButton");
 const saveVehicleListButton = document.getElementById("saveVehicleListButton");
+const shareVehicleListButton = document.getElementById("shareVehicleListButton");
+const importVehicleListButton = document.getElementById("importVehicleListButton");
+const importVehicleListInput = document.getElementById("importVehicleListInput");
 const sortByDistanceButton = document.getElementById("sortByDistanceButton");
 const mapToggle = document.getElementById("mapToggle");
 const mapContent = document.getElementById("mapContent");
@@ -15,6 +18,9 @@ const savedListsCount = document.getElementById("savedListsCount");
 const appContainer = document.querySelector(".container");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const SAVED_LISTS_STORAGE_KEY = "recargasVoltio.listasGuardadas";
+const VEHICLES_EXPORT_APP_ID = "RechargeEV";
+const VEHICLES_EXPORT_TYPE = "vehicles-list";
+const VEHICLES_EXPORT_VERSION = 1;
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 const STATE_COLORS = {
@@ -256,6 +262,153 @@ function writeSavedLists(lists) {
 // Crea una copia independiente para que las listas históricas no cambien al editar la lista activa.
 function cloneVehicles(vehicles) {
   return JSON.parse(JSON.stringify(vehicles));
+}
+
+// Construye un paquete portable para enviar la lista a otro dispositivo con la misma app.
+function createVehiclesExportPayload() {
+  const vehicles = readVehicles();
+
+  if (vehicles.length === 0) {
+    throw new Error("No hay vehículos para compartir");
+  }
+
+  return {
+    app: VEHICLES_EXPORT_APP_ID,
+    type: VEHICLES_EXPORT_TYPE,
+    version: VEHICLES_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    vehicles: cloneVehicles(vehicles),
+  };
+}
+
+// Genera un nombre de archivo legible para WhatsApp, Drive, correo u otras apps.
+function createVehiclesExportFileName() {
+  const date = new Date().toISOString().slice(0, 10);
+  return `recargasev-vehiculos-${date}.json`;
+}
+
+// Descarga el JSON cuando el navegador no permite compartir archivos directamente.
+function downloadVehiclesExport(json, fileName) {
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+// Comparte la lista usando el diálogo nativo del sistema y cae a descarga si no está disponible.
+async function shareVehiclesList() {
+  const payload = createVehiclesExportPayload();
+  const json = JSON.stringify(payload, null, 2);
+  const fileName = createVehiclesExportFileName();
+  const file = new File([json], fileName, { type: "application/json" });
+  const shareData = {
+    title: "Lista de vehículos Recargas VE",
+    text: `Lista de ${payload.vehicles.length} vehículo${payload.vehicles.length === 1 ? "" : "s"} para importar en Recargas VE.`,
+    files: [file],
+  };
+
+  if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+    await navigator.share(shareData);
+    return "shared";
+  }
+
+  downloadVehiclesExport(json, fileName);
+  return "downloaded";
+}
+
+// Normaliza cada vehículo importado para evitar datos rotos o estados desconocidos.
+function sanitizeImportedVehicle(vehicle) {
+  if (!vehicle || typeof vehicle !== "object") return null;
+
+  const matricula = cleanText(vehicle.matricula, 20).toUpperCase();
+  const mapsUrl = cleanText(vehicle.mapsUrl, 500);
+
+  if (!matricula || !mapsUrl || !mapsUrl.startsWith("https://")) {
+    return null;
+  }
+
+  return {
+    id: cleanText(vehicle.id, 120) || createId(),
+    matricula,
+    mapsUrl,
+    coordinates: isValidCoordinates(vehicle.coordinates) ? vehicle.coordinates : null,
+    address: vehicle.address && typeof vehicle.address === "object" ? vehicle.address : null,
+    estado: ALLOWED_STATES.includes(vehicle.estado) ? vehicle.estado : "pendiente",
+    notas: cleanText(vehicle.notas, 500),
+    createdAt: cleanText(vehicle.createdAt, 40) || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// Lee y valida el contenido recibido desde un archivo JSON exportado por la app.
+function parseVehiclesImportPayload(text) {
+  let payload;
+
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    throw new Error("El archivo seleccionado no contiene un JSON válido");
+  }
+
+  if (!payload || payload.type !== VEHICLES_EXPORT_TYPE || !Array.isArray(payload.vehicles)) {
+    throw new Error("El archivo no parece ser una lista exportada de Recargas VE");
+  }
+
+  const vehicles = payload.vehicles
+    .map(sanitizeImportedVehicle)
+    .filter(Boolean);
+
+  if (vehicles.length === 0) {
+    throw new Error("No se encontraron vehículos válidos para importar");
+  }
+
+  return vehicles;
+}
+
+// Fusiona evitando duplicados por matrícula + enlace de Maps, que son los datos más estables.
+function mergeVehiclesWithoutDuplicates(currentVehicles, importedVehicles) {
+  const existingKeys = new Set(
+    currentVehicles.map((vehicle) => `${vehicle.matricula}|${vehicle.mapsUrl}`.toLowerCase())
+  );
+  const vehiclesToAdd = [];
+
+  importedVehicles.forEach((vehicle) => {
+    const key = `${vehicle.matricula}|${vehicle.mapsUrl}`.toLowerCase();
+
+    if (existingKeys.has(key)) return;
+
+    existingKeys.add(key);
+    vehiclesToAdd.push({ ...vehicle, id: createId(), updatedAt: new Date().toISOString() });
+  });
+
+  return {
+    vehicles: [...currentVehicles, ...vehiclesToAdd],
+    addedCount: vehiclesToAdd.length,
+  };
+}
+
+// Importa una lista externa preguntando si se añade a la actual o la reemplaza.
+function importVehiclesFromText(text) {
+  const importedVehicles = parseVehiclesImportPayload(text);
+  const currentVehicles = readVehicles();
+  const shouldReplace = confirm(
+    `Se han encontrado ${importedVehicles.length} vehículo${importedVehicles.length === 1 ? "" : "s"}.\n\nAceptar: reemplazar la lista actual.\nCancelar: añadir a la lista actual sin duplicados.`
+  );
+
+  if (shouldReplace) {
+    writeVehicles(importedVehicles.map((vehicle) => ({ ...vehicle, id: createId() })));
+    return { mode: "replace", count: importedVehicles.length };
+  }
+
+  const mergeResult = mergeVehiclesWithoutDuplicates(currentVehicles, importedVehicles);
+  writeVehicles(mergeResult.vehicles);
+
+  return { mode: "merge", count: mergeResult.addedCount };
 }
 
 // Guarda una instantánea completa de la lista actual con fecha y hora de creación.
@@ -999,6 +1152,64 @@ saveVehicleListButton.addEventListener("keydown", (event) => {
 
   event.preventDefault();
   saveVehicleListButton.click();
+});
+
+shareVehicleListButton.addEventListener("click", async (event) => {
+  event.stopPropagation();
+
+  try {
+    const result = await shareVehiclesList();
+    showAppMessage(
+      result === "shared"
+        ? "Lista preparada para compartir. Elige WhatsApp u otra app."
+        : "No se pudo abrir compartir. Se ha descargado el archivo JSON.",
+      "success"
+    );
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    showAppMessage(error.message, "error");
+  }
+});
+
+shareVehicleListButton.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+
+  event.preventDefault();
+  shareVehicleListButton.click();
+});
+
+importVehicleListButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  importVehicleListInput.click();
+});
+
+importVehicleListButton.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+
+  event.preventDefault();
+  importVehicleListButton.click();
+});
+
+importVehicleListInput.addEventListener("change", async () => {
+  const [file] = importVehicleListInput.files || [];
+
+  if (!file) return;
+
+  try {
+    const result = importVehiclesFromText(await file.text());
+    resetVehicleForm();
+    loadVehicles();
+    showAppMessage(
+      result.mode === "replace"
+        ? `Lista importada: ${result.count} vehículo${result.count === 1 ? "" : "s"}.`
+        : `Importación completada: ${result.count} vehículo${result.count === 1 ? "" : "s"} añadido${result.count === 1 ? "" : "s"}.`,
+      "success"
+    );
+  } catch (error) {
+    showAppMessage(error.message, "error");
+  } finally {
+    importVehicleListInput.value = "";
+  }
 });
 
 sortByDistanceButton.addEventListener("click", async (event) => {

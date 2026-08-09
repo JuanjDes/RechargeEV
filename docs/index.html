@@ -71,10 +71,23 @@
               role="button"
               tabindex="0"
             >Guardar lista</span>
+            <span
+              id="shareVehicleListButton"
+              class="share-vehicle-list-button"
+              role="button"
+              tabindex="0"
+            >Compartir</span>
+            <span
+              id="importVehicleListButton"
+              class="import-vehicle-list-button"
+              role="button"
+              tabindex="0"
+            >Importar</span>
             <span class="section-toggle-icon" aria-hidden="true">▾</span>
           </span>
         </button>
       </h2>
+      <input id="importVehicleListInput" type="file" accept="application/json,.json" hidden />
       <div id="vehicleList" class="vehicle-list" hidden></div>
     </section>
 

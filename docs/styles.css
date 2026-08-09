@@ -52,7 +52,9 @@ h2 {
 }
 
 .delete-all-vehicles-button,
-.save-vehicle-list-button {
+.save-vehicle-list-button,
+.share-vehicle-list-button,
+.import-vehicle-list-button {
   border-radius: 999px;
   padding: 6px 12px;
   color: #ffffff;
@@ -67,6 +69,14 @@ h2 {
 
 .save-vehicle-list-button {
   background: #22c55e;
+}
+
+.share-vehicle-list-button {
+  background: #14b8a6;
+}
+
+.import-vehicle-list-button {
+  background: #a855f7;
 }
 
 .sort-by-distance-button {
@@ -89,6 +99,10 @@ h2 {
 .sort-by-distance-button:focus-visible,
 .save-vehicle-list-button:hover,
 .save-vehicle-list-button:focus-visible,
+.share-vehicle-list-button:hover,
+.share-vehicle-list-button:focus-visible,
+.import-vehicle-list-button:hover,
+.import-vehicle-list-button:focus-visible,
 .delete-all-vehicles-button:hover,
 .delete-all-vehicles-button:focus-visible {
   filter: brightness(1.08);
