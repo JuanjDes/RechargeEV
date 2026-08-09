@@ -134,8 +134,45 @@ h2 {
 
 .vehicle-list[hidden],
 .saved-lists[hidden],
-.map-card[hidden] {
+.map-card[hidden],
+.vehicle-transfer-panel[hidden] {
   display: none;
+}
+
+.vehicle-transfer-panel {
+  display: grid;
+  gap: 12px;
+  border-color: #14b8a6;
+}
+
+.vehicle-transfer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vehicle-transfer-header h3,
+.vehicle-transfer-help {
+  margin: 0;
+}
+
+.vehicle-transfer-help {
+  color: #d1d5db;
+  line-height: 1.45;
+}
+
+.vehicle-transfer-text {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.85rem;
+  white-space: pre;
+}
+
+.vehicle-transfer-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
 }
 
 .card,

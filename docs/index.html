@@ -88,6 +88,27 @@
         </button>
       </h2>
       <input id="importVehicleListInput" type="file" accept="application/json,.json" hidden />
+      <div id="vehicleTransferPanel" class="vehicle-transfer-panel card" hidden>
+        <div class="vehicle-transfer-header">
+          <h3 id="vehicleTransferTitle">Transferir lista</h3>
+          <button id="closeVehicleTransferPanelButton" class="secondary" type="button">Cerrar</button>
+        </div>
+        <p id="vehicleTransferHelp" class="vehicle-transfer-help">
+          Copia aquí los datos para enviarlos por WhatsApp, o pega una lista recibida para importarla.
+        </p>
+        <textarea
+          id="vehicleTransferText"
+          class="vehicle-transfer-text"
+          placeholder="Aquí aparecerá la lista exportada o puedes pegar una lista recibida..."
+          spellcheck="false"
+        ></textarea>
+        <div class="vehicle-transfer-actions">
+          <button id="copyVehicleTransferButton" type="button">Copiar texto</button>
+          <button id="downloadVehicleTransferButton" type="button">Descargar JSON</button>
+          <button id="importVehicleTransferTextButton" type="button">Importar texto</button>
+          <button id="selectImportVehicleFileButton" class="secondary" type="button">Elegir archivo</button>
+        </div>
+      </div>
       <div id="vehicleList" class="vehicle-list" hidden></div>
     </section>
 

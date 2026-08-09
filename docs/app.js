@@ -7,6 +7,15 @@ const saveVehicleListButton = document.getElementById("saveVehicleListButton");
 const shareVehicleListButton = document.getElementById("shareVehicleListButton");
 const importVehicleListButton = document.getElementById("importVehicleListButton");
 const importVehicleListInput = document.getElementById("importVehicleListInput");
+const vehicleTransferPanel = document.getElementById("vehicleTransferPanel");
+const vehicleTransferTitle = document.getElementById("vehicleTransferTitle");
+const vehicleTransferHelp = document.getElementById("vehicleTransferHelp");
+const vehicleTransferText = document.getElementById("vehicleTransferText");
+const closeVehicleTransferPanelButton = document.getElementById("closeVehicleTransferPanelButton");
+const copyVehicleTransferButton = document.getElementById("copyVehicleTransferButton");
+const downloadVehicleTransferButton = document.getElementById("downloadVehicleTransferButton");
+const importVehicleTransferTextButton = document.getElementById("importVehicleTransferTextButton");
+const selectImportVehicleFileButton = document.getElementById("selectImportVehicleFileButton");
 const sortByDistanceButton = document.getElementById("sortByDistanceButton");
 const mapToggle = document.getElementById("mapToggle");
 const mapContent = document.getElementById("mapContent");
@@ -319,35 +328,59 @@ function isSharePermissionError(error) {
   );
 }
 
-// Comparte la lista usando el diálogo nativo del sistema y cae a descarga si no está disponible.
-async function shareVehiclesList() {
-  const payload = createVehiclesExportPayload();
-  const json = JSON.stringify(payload, null, 2);
-  const fileName = createVehiclesExportFileName();
-  const file = new File([json], fileName, { type: "application/json" });
-  const shareData = {
-    title: "Lista de vehículos Recargas VE",
-    text: `Lista de ${payload.vehicles.length} vehículo${payload.vehicles.length === 1 ? "" : "s"} para importar en Recargas VE.`,
-    files: [file],
-  };
+// Muestra un panel interno que no depende de permisos del sistema para transferir la lista.
+function showVehicleTransferPanel(mode, text = "") {
+  const isExportMode = mode === "export";
 
-  if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
-    try {
-      await navigator.share(shareData);
-      return "shared";
-    } catch (error) {
-      if (error.name === "AbortError") {
-        throw error;
-      }
+  vehicleTransferTitle.textContent = isExportMode ? "Lista lista para compartir" : "Importar lista recibida";
+  vehicleTransferHelp.textContent = isExportMode
+    ? "Si WhatsApp o el móvil bloquean compartir, copia este texto y envíalo manualmente. En el otro dispositivo pégalo en Importar."
+    : "Pega aquí el texto recibido por WhatsApp o elige un archivo JSON exportado desde esta app.";
+  vehicleTransferText.value = text;
+  copyVehicleTransferButton.hidden = !isExportMode;
+  downloadVehicleTransferButton.hidden = !isExportMode;
+  importVehicleTransferTextButton.hidden = isExportMode;
+  selectImportVehicleFileButton.hidden = isExportMode;
+  vehicleTransferPanel.hidden = false;
+  vehicleTransferText.focus();
+  vehicleTransferText.select();
+  vehicleTransferPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
-      if (!isSharePermissionError(error)) {
-        console.warn("No se pudo compartir la lista directamente:", error);
-      }
-    }
+function hideVehicleTransferPanel() {
+  vehicleTransferPanel.hidden = true;
+}
+
+// Copia al portapapeles si el navegador lo permite; si no, deja el texto seleccionado.
+async function copyVehicleTransferText() {
+  const text = vehicleTransferText.value;
+
+  if (!text) {
+    throw new Error("No hay texto para copiar");
   }
 
-  downloadVehiclesExport(json, fileName);
-  return "downloaded";
+  vehicleTransferText.focus();
+  vehicleTransferText.select();
+
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const copied = document.execCommand("copy");
+
+  if (!copied) {
+    throw new Error("No se pudo copiar automáticamente. Mantén pulsado el texto y cópialo manualmente.");
+  }
+}
+
+// Prepara la lista para compartir sin depender de permisos del sistema móvil.
+function shareVehiclesList() {
+  const payload = createVehiclesExportPayload();
+  const json = JSON.stringify(payload, null, 2);
+
+  showVehicleTransferPanel("export", json);
+  return "manual";
 }
 
 // Normaliza cada vehículo importado para evitar datos rotos o estados desconocidos.
@@ -1183,19 +1216,13 @@ saveVehicleListButton.addEventListener("keydown", (event) => {
   saveVehicleListButton.click();
 });
 
-shareVehicleListButton.addEventListener("click", async (event) => {
+shareVehicleListButton.addEventListener("click", (event) => {
   event.stopPropagation();
 
   try {
-    const result = await shareVehiclesList();
-    showAppMessage(
-      result === "shared"
-        ? "Lista preparada para compartir. Elige WhatsApp u otra app."
-        : "No se pudo abrir compartir. Se ha descargado el archivo JSON.",
-      "success"
-    );
+    shareVehiclesList();
+    showAppMessage("Lista preparada. Copia el texto del panel y envíalo por WhatsApp.", "success");
   } catch (error) {
-    if (error.name === "AbortError") return;
     showAppMessage(error.message, "error");
   }
 });
@@ -1209,7 +1236,7 @@ shareVehicleListButton.addEventListener("keydown", (event) => {
 
 importVehicleListButton.addEventListener("click", (event) => {
   event.stopPropagation();
-  importVehicleListInput.click();
+  showVehicleTransferPanel("import");
 });
 
 importVehicleListButton.addEventListener("keydown", (event) => {
@@ -1239,6 +1266,53 @@ importVehicleListInput.addEventListener("change", async () => {
   } finally {
     importVehicleListInput.value = "";
   }
+});
+
+closeVehicleTransferPanelButton.addEventListener("click", hideVehicleTransferPanel);
+
+copyVehicleTransferButton.addEventListener("click", async () => {
+  try {
+    await copyVehicleTransferText();
+    showAppMessage("Texto copiado. Ahora puedes pegarlo en WhatsApp.", "success");
+  } catch (error) {
+    showAppMessage(error.message, "warning", { persistent: true });
+  }
+});
+
+downloadVehicleTransferButton.addEventListener("click", () => {
+  try {
+    const text = vehicleTransferText.value;
+
+    if (!text) {
+      throw new Error("No hay datos para descargar");
+    }
+
+    downloadVehiclesExport(text, createVehiclesExportFileName());
+    showAppMessage("Archivo JSON preparado para descargar.", "success");
+  } catch (error) {
+    showAppMessage(error.message, "error");
+  }
+});
+
+importVehicleTransferTextButton.addEventListener("click", () => {
+  try {
+    const result = importVehiclesFromText(vehicleTransferText.value);
+    resetVehicleForm();
+    loadVehicles();
+    hideVehicleTransferPanel();
+    showAppMessage(
+      result.mode === "replace"
+        ? `Lista importada: ${result.count} vehículo${result.count === 1 ? "" : "s"}.`
+        : `Importación completada: ${result.count} vehículo${result.count === 1 ? "" : "s"} añadido${result.count === 1 ? "" : "s"}.`,
+      "success"
+    );
+  } catch (error) {
+    showAppMessage(error.message, "error");
+  }
+});
+
+selectImportVehicleFileButton.addEventListener("click", () => {
+  importVehicleListInput.click();
 });
 
 sortByDistanceButton.addEventListener("click", async (event) => {
