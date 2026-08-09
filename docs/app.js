@@ -32,6 +32,7 @@ const VEHICLES_EXPORT_TYPE = "vehicles-list";
 const VEHICLES_EXPORT_VERSION = 1;
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
+const ACTIVATION_KEYS = new Set(["Enter", " "]);
 const STATE_COLORS = {
   pendiente: "#facc15",
   cargando: "#38bdf8",
@@ -39,7 +40,7 @@ const STATE_COLORS = {
   incidencia: "#ef4444",
 };
 const DEFAULT_MAP_CENTER = [40.4168, -3.7038];
-const DEFAULT_MAP_ZOOM = 6;
+const DEFAULT_MAP_ZOOM = 4;
 let editingVehicleId = null;
 let vehiclesMap = null;
 let markersLayer = null;
@@ -144,6 +145,66 @@ function cleanText(value, maxLength = 300) {
   return value.trim().slice(0, maxLength);
 }
 
+// Agrupa los campos del formulario para evitar repetir búsquedas en el DOM.
+function getVehicleFormFields() {
+  return {
+    matricula: document.getElementById("matricula"),
+    mapsUrl: document.getElementById("mapsUrl"),
+    notas: document.getElementById("notas"),
+  };
+}
+
+// Lee los valores actuales del formulario principal.
+function getVehicleFormValues() {
+  const fields = getVehicleFormFields();
+
+  return {
+    matricula: fields.matricula.value.trim(),
+    mapsUrl: fields.mapsUrl.value.trim(),
+    notas: fields.notas.value.trim(),
+  };
+}
+
+// Rellena campos concretos del formulario sin modificar los que no se reciben.
+function fillVehicleForm({ matricula, mapsUrl, notas }) {
+  const fields = getVehicleFormFields();
+
+  if (matricula !== undefined) fields.matricula.value = matricula;
+  if (mapsUrl !== undefined) fields.mapsUrl.value = mapsUrl;
+  if (notas !== undefined) fields.notas.value = notas;
+}
+
+// Centraliza la lógica de teclas que activan botones personalizados.
+function isActivationKey(event) {
+  return ACTIVATION_KEYS.has(event.key);
+}
+
+function clickButtonOnActivationKey(button, event) {
+  if (!isActivationKey(event)) return;
+
+  event.preventDefault();
+  button.click();
+}
+
+// Cambia paneles desplegables manteniendo sincronizados aria-expanded y hidden.
+function togglePanel(toggleButton, panel) {
+  const isExpanded = toggleButton.getAttribute("aria-expanded") === "true";
+
+  toggleButton.setAttribute("aria-expanded", String(!isExpanded));
+  panel.hidden = isExpanded;
+
+  return !isExpanded;
+}
+
+// Mantiene un único texto para resultados de importación, usado por archivo y por texto pegado.
+function formatImportResultMessage(result) {
+  const pluralSuffix = result.count === 1 ? "" : "s";
+
+  return result.mode === "replace"
+    ? `Lista importada: ${result.count} vehículo${pluralSuffix}.`
+    : `Importación completada: ${result.count} vehículo${pluralSuffix} añadido${pluralSuffix}.`;
+}
+
 // Comprueba si una URL pertenece a Google Maps o a sus enlaces cortos habituales.
 function isGoogleMapsUrl(value) {
   try {
@@ -209,9 +270,9 @@ function handleSharedGoogleMapsUrl() {
 
   if (!sharedMapsUrl) return;
 
-  const mapsUrlInput = document.getElementById("mapsUrl");
-  mapsUrlInput.value = sharedMapsUrl;
-  mapsUrlInput.focus();
+  const { mapsUrl } = getVehicleFormFields();
+  fillVehicleForm({ mapsUrl: sharedMapsUrl });
+  mapsUrl.focus();
   vehicleForm.scrollIntoView({ behavior: "smooth", block: "start" });
   showAppMessage(
     "Enlace de Google Maps recibido. Añade la matrícula para guardar el vehículo.",
@@ -832,6 +893,75 @@ function formatLocality(address) {
   );
 }
 
+// Construye la línea de código postal y localidad usada en tarjetas e histórico.
+function formatPostcodeLocality(address) {
+  const postcode = address?.postcode || "";
+  const locality = formatLocality(address);
+
+  return [postcode, locality].filter(Boolean).join(" · ");
+}
+
+// Crea el bloque HTML de dirección de una tarjeta de vehículo.
+function createVehicleAddressHtml(address) {
+  if (!hasAddressData(address)) return "";
+
+  const streetAddress = formatStreetAddress(address);
+  const postcodeLocality = formatPostcodeLocality(address);
+
+  return `
+          <p class="vehicle-address">
+            ${streetAddress ? `<span><strong>Dirección:</strong> ${escapeHtml(streetAddress)}</span>` : ""}
+            ${postcodeLocality ? `<span><strong>CP/Local :</strong> ${escapeHtml(postcodeLocality)}</span>` : ""}
+          </p>
+        `;
+}
+
+// Crea el bloque HTML de distancia de ruta de una tarjeta de vehículo.
+function createRouteDistanceHtml(vehicle) {
+  if (Number.isFinite(vehicle.routeDistanceKm)) {
+    return `
+          <p class="vehicle-route-distance">
+            <strong>Distancia:</strong> ${escapeHtml(formatDistanceKm(vehicle.routeDistanceKm))}
+            ${escapeHtml(vehicle.routeDistanceLabel || "")}
+          </p>
+        `;
+  }
+
+  if (!vehicle.routeDistanceLabel) return "";
+
+  return `
+            <p class="vehicle-route-distance vehicle-route-distance-muted">
+              ${escapeHtml(vehicle.routeDistanceLabel)}
+            </p>
+          `;
+}
+
+// Crea la línea compacta de dirección para vehículos dentro de listas guardadas.
+function formatSavedListVehicleAddressLine(address) {
+  const streetAddress = formatStreetAddress(address);
+  const postcodeLocality = formatPostcodeLocality(address);
+
+  return [streetAddress, postcodeLocality].filter(Boolean).join(" | ");
+}
+
+// Pinta un vehículo dentro del histórico de listas guardadas.
+function createSavedListVehicleHtml(vehicle) {
+  const addressLine = formatSavedListVehicleAddressLine(vehicle.address);
+  const estado = ALLOWED_STATES.includes(vehicle.estado) ? vehicle.estado : "pendiente";
+
+  return `
+              <li class="saved-list-vehicle">
+                <div class="saved-list-vehicle-header">
+                  <strong>${escapeHtml(vehicle.matricula || "Sin matrícula")}</strong>
+                  <span class="estado ${escapeHtml(estado)}">${escapeHtml(estado)}</span>
+                </div>
+                ${vehicle.notas ? `<p>${escapeHtml(vehicle.notas)}</p>` : ""}
+                ${addressLine ? `<p class="saved-list-address">${escapeHtml(addressLine)}</p>` : ""}
+                ${vehicle.mapsUrl ? `<a href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">Abrir Maps</a>` : ""}
+              </li>
+            `;
+}
+
 // Pide al backend que resuelva la URL de Maps y devuelva coordenadas y dirección postal.
 async function analyzeMapsUrl(mapsUrl) {
   let response;
@@ -946,32 +1076,8 @@ function renderVehicles(vehicles) {
   vehicles.forEach((vehicle) => {
     const card = document.createElement("article");
     card.className = "vehicle-card";
-    const streetAddress = formatStreetAddress(vehicle.address);
-    const postcode = vehicle.address?.postcode || "";
-    const locality = formatLocality(vehicle.address);
-    const postcodeLocality = [postcode, locality].filter(Boolean).join(" · ");
-    const addressHtml = hasAddressData(vehicle.address)
-      ? `
-          <p class="vehicle-address">
-            ${streetAddress ? `<span><strong>Dirección:</strong> ${escapeHtml(streetAddress)}</span>` : ""}
-            ${postcodeLocality ? `<span><strong>CP/Local :</strong> ${escapeHtml(postcodeLocality)}</span>` : ""}
-          </p>
-        `
-      : "";
-    const routeDistanceHtml = Number.isFinite(vehicle.routeDistanceKm)
-      ? `
-          <p class="vehicle-route-distance">
-            <strong>Distancia:</strong> ${escapeHtml(formatDistanceKm(vehicle.routeDistanceKm))}
-            ${escapeHtml(vehicle.routeDistanceLabel || "")}
-          </p>
-        `
-      : vehicle.routeDistanceLabel
-        ? `
-            <p class="vehicle-route-distance vehicle-route-distance-muted">
-              ${escapeHtml(vehicle.routeDistanceLabel)}
-            </p>
-          `
-        : "";
+    const addressHtml = createVehicleAddressHtml(vehicle.address);
+    const routeDistanceHtml = createRouteDistanceHtml(vehicle);
 
     card.innerHTML = `
       <details class="vehicle-actions-dropdown">
@@ -1022,26 +1128,7 @@ function renderSavedLists(lists) {
     const vehicles = Array.isArray(savedList.vehicles) ? savedList.vehicles : [];
     const vehiclesHtml = vehicles.length > 0
       ? vehicles
-          .map((vehicle) => {
-            const streetAddress = formatStreetAddress(vehicle.address);
-            const postcode = vehicle.address?.postcode || "";
-            const locality = formatLocality(vehicle.address);
-            const postcodeLocality = [postcode, locality].filter(Boolean).join(" · ");
-            const addressLine = [streetAddress, postcodeLocality].filter(Boolean).join(" | ");
-            const estado = ALLOWED_STATES.includes(vehicle.estado) ? vehicle.estado : "pendiente";
-
-            return `
-              <li class="saved-list-vehicle">
-                <div class="saved-list-vehicle-header">
-                  <strong>${escapeHtml(vehicle.matricula || "Sin matrícula")}</strong>
-                  <span class="estado ${escapeHtml(estado)}">${escapeHtml(estado)}</span>
-                </div>
-                ${vehicle.notas ? `<p>${escapeHtml(vehicle.notas)}</p>` : ""}
-                ${addressLine ? `<p class="saved-list-address">${escapeHtml(addressLine)}</p>` : ""}
-                ${vehicle.mapsUrl ? `<a href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">Abrir Maps</a>` : ""}
-              </li>
-            `;
-          })
+          .map(createSavedListVehicleHtml)
           .join("")
       : `<li class="saved-list-vehicle empty">Lista sin vehículos.</li>`;
 
@@ -1100,18 +1187,16 @@ function loadSavedLists() {
 vehicleForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  const matricula = document.getElementById("matricula").value.trim();
-  const mapsUrl = document.getElementById("mapsUrl").value.trim();
-  const notas = document.getElementById("notas").value.trim();
+  const vehicleData = getVehicleFormValues();
 
   try {
     vehicleSubmitButton.disabled = true;
     vehicleSubmitButton.textContent = "Ubicación...";
 
     if (editingVehicleId) {
-      await updateVehicle(editingVehicleId, { matricula, mapsUrl, notas });
+      await updateVehicle(editingVehicleId, vehicleData);
     } else {
-      await createVehicle({ matricula, mapsUrl, notas });
+      await createVehicle(vehicleData);
     }
 
     resetVehicleForm();
@@ -1146,9 +1231,11 @@ vehicleList.addEventListener("click", async (event) => {
       }
 
       editingVehicleId = id;
-      document.getElementById("matricula").value = vehicle.matricula;
-      document.getElementById("mapsUrl").value = vehicle.mapsUrl;
-      document.getElementById("notas").value = vehicle.notas || "";
+      fillVehicleForm({
+        matricula: vehicle.matricula,
+        mapsUrl: vehicle.mapsUrl,
+        notas: vehicle.notas || "",
+      });
       setFormMode("edit");
       vehicleForm.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
@@ -1173,10 +1260,7 @@ vehicleList.addEventListener("click", async (event) => {
 
 // Muestra u oculta la lista de vehículos.
 vehiclesToggle.addEventListener("click", () => {
-  const isExpanded = vehiclesToggle.getAttribute("aria-expanded") === "true";
-
-  vehiclesToggle.setAttribute("aria-expanded", String(!isExpanded));
-  vehicleList.hidden = isExpanded;
+  togglePanel(vehiclesToggle, vehicleList);
 });
 
 deleteAllVehiclesButton.addEventListener("click", (event) => {
@@ -1191,10 +1275,7 @@ deleteAllVehiclesButton.addEventListener("click", (event) => {
 });
 
 deleteAllVehiclesButton.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-
-  event.preventDefault();
-  deleteAllVehiclesButton.click();
+  clickButtonOnActivationKey(deleteAllVehiclesButton, event);
 });
 
 saveVehicleListButton.addEventListener("click", (event) => {
@@ -1210,10 +1291,7 @@ saveVehicleListButton.addEventListener("click", (event) => {
 });
 
 saveVehicleListButton.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-
-  event.preventDefault();
-  saveVehicleListButton.click();
+  clickButtonOnActivationKey(saveVehicleListButton, event);
 });
 
 shareVehicleListButton.addEventListener("click", (event) => {
@@ -1228,10 +1306,7 @@ shareVehicleListButton.addEventListener("click", (event) => {
 });
 
 shareVehicleListButton.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-
-  event.preventDefault();
-  shareVehicleListButton.click();
+  clickButtonOnActivationKey(shareVehicleListButton, event);
 });
 
 importVehicleListButton.addEventListener("click", (event) => {
@@ -1240,10 +1315,7 @@ importVehicleListButton.addEventListener("click", (event) => {
 });
 
 importVehicleListButton.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-
-  event.preventDefault();
-  importVehicleListButton.click();
+  clickButtonOnActivationKey(importVehicleListButton, event);
 });
 
 importVehicleListInput.addEventListener("change", async () => {
@@ -1255,12 +1327,7 @@ importVehicleListInput.addEventListener("change", async () => {
     const result = importVehiclesFromText(await file.text());
     resetVehicleForm();
     loadVehicles();
-    showAppMessage(
-      result.mode === "replace"
-        ? `Lista importada: ${result.count} vehículo${result.count === 1 ? "" : "s"}.`
-        : `Importación completada: ${result.count} vehículo${result.count === 1 ? "" : "s"} añadido${result.count === 1 ? "" : "s"}.`,
-      "success"
-    );
+    showAppMessage(formatImportResultMessage(result), "success");
   } catch (error) {
     showAppMessage(error.message, "error");
   } finally {
@@ -1300,12 +1367,7 @@ importVehicleTransferTextButton.addEventListener("click", () => {
     resetVehicleForm();
     loadVehicles();
     hideVehicleTransferPanel();
-    showAppMessage(
-      result.mode === "replace"
-        ? `Lista importada: ${result.count} vehículo${result.count === 1 ? "" : "s"}.`
-        : `Importación completada: ${result.count} vehículo${result.count === 1 ? "" : "s"} añadido${result.count === 1 ? "" : "s"}.`,
-      "success"
-    );
+    showAppMessage(formatImportResultMessage(result), "success");
   } catch (error) {
     showAppMessage(error.message, "error");
   }
@@ -1346,30 +1408,21 @@ sortByDistanceButton.addEventListener("click", async (event) => {
 });
 
 sortByDistanceButton.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-
-  event.preventDefault();
-  sortByDistanceButton.click();
+  clickButtonOnActivationKey(sortByDistanceButton, event);
 });
 
 // Muestra u oculta el mapa de vehículos.
 mapToggle.addEventListener("click", () => {
-  const isExpanded = mapToggle.getAttribute("aria-expanded") === "true";
+  const isExpanded = togglePanel(mapToggle, mapContent);
 
-  mapToggle.setAttribute("aria-expanded", String(!isExpanded));
-  mapContent.hidden = isExpanded;
-
-  if (!isExpanded) {
+  if (isExpanded) {
     refreshMapSize();
   }
 });
 
 // Muestra u oculta el histórico de listas guardadas.
 savedListsToggle.addEventListener("click", () => {
-  const isExpanded = savedListsToggle.getAttribute("aria-expanded") === "true";
-
-  savedListsToggle.setAttribute("aria-expanded", String(!isExpanded));
-  savedLists.hidden = isExpanded;
+  togglePanel(savedListsToggle, savedLists);
 });
 
 // Gestiona acciones de restauración y borrado de listas guardadas.
@@ -1403,22 +1456,11 @@ savedLists.addEventListener("click", (event) => {
   }
 });
 
-initMap();
-createAppMessage();
-createOfflineNotices();
-updateSortByDistanceButton();
-updateNetworkStatus();
-handleSharedGoogleMapsUrl();
-loadVehicles();
-loadSavedLists();
-refreshMapSize();
-window.addEventListener("resize", refreshMapSize);
-window.addEventListener("online", updateNetworkStatus);
-window.addEventListener("offline", updateNetworkStatus);
-
 // Registra el Service Worker cuando el navegador lo soporta.
 // Se usa una ruta relativa para mantener compatibilidad con GitHub Pages.
-if ("serviceWorker" in navigator) {
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("./service-worker.js")
@@ -1430,3 +1472,23 @@ if ("serviceWorker" in navigator) {
       });
   });
 }
+
+// Inicializa la aplicación en el mismo orden que el flujo original.
+function initApp() {
+  initMap();
+  createAppMessage();
+  createOfflineNotices();
+  updateSortByDistanceButton();
+  updateNetworkStatus();
+  handleSharedGoogleMapsUrl();
+  loadVehicles();
+  loadSavedLists();
+  refreshMapSize();
+
+  window.addEventListener("resize", refreshMapSize);
+  window.addEventListener("online", updateNetworkStatus);
+  window.addEventListener("offline", updateNetworkStatus);
+  registerServiceWorker();
+}
+
+initApp();
