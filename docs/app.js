@@ -40,7 +40,7 @@ const STATE_COLORS = {
   incidencia: "#ef4444",
 };
 const DEFAULT_MAP_CENTER = [40.4168, -3.7038];
-const DEFAULT_MAP_ZOOM = 4;
+const DEFAULT_MAP_ZOOM = 2;
 let editingVehicleId = null;
 let vehiclesMap = null;
 let markersLayer = null;
@@ -1094,16 +1094,23 @@ function renderVehicles(vehicles) {
           ${addressHtml}
         </summary>
 
-        <div class="actions">
-          <a href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">
-            Abrir Maps
-          </a>
+        <div class="actions" aria-label="Acciones para ${escapeHtml(vehicle.matricula)}">
+          <div class="vehicle-primary-actions">
+            <a class="maps-action" href="${escapeHtml(vehicle.mapsUrl)}" target="_blank" rel="noopener noreferrer">
+              Abrir Maps
+            </a>
+          </div>
 
-          <button data-id="${vehicle.id}" data-estado="cargando">Cargando</button>
-          <button data-id="${vehicle.id}" data-estado="cargado">Cargado</button>
-          <button data-id="${vehicle.id}" data-estado="incidencia">Incidencia</button>
-          <button class="edit" data-id="${vehicle.id}" data-edit="true">Editar</button>
-          <button class="delete" data-id="${vehicle.id}" data-delete="true">Borrar</button>
+          <div class="vehicle-state-actions" aria-label="Cambiar estado">
+            <button data-id="${vehicle.id}" data-estado="cargando">Cargando</button>
+            <button data-id="${vehicle.id}" data-estado="cargado">Cargado</button>
+            <button data-id="${vehicle.id}" data-estado="incidencia">Incidencia</button>
+          </div>
+
+          <div class="vehicle-management-actions" aria-label="Gestionar vehículo">
+            <button class="edit" data-id="${vehicle.id}" data-edit="true">Editar</button>
+            <button class="delete" data-id="${vehicle.id}" data-delete="true">Borrar</button>
+          </div>
         </div>
       </details>
     `;

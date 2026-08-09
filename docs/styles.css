@@ -32,22 +32,29 @@ h2 {
 
 .vehicles-section-toggle {
   flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  text-align: center;
+  align-items: stretch;
+  gap: 12px;
+  text-align: left;
+}
+
+.vehicles-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
 
 .vehicles-section-title {
   display: block;
-  width: 100%;
 }
 
 .vehicles-section-controls {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -55,12 +62,16 @@ h2 {
 .save-vehicle-list-button,
 .share-vehicle-list-button,
 .import-vehicle-list-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 8px 12px;
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .delete-all-vehicles-button {
@@ -80,13 +91,17 @@ h2 {
 }
 
 .sort-by-distance-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 8px 12px;
   background: #3b82f6;
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .sort-by-distance-button[aria-pressed="true"] {
@@ -532,23 +547,62 @@ button:disabled {
 
 .actions {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #374151;
+}
+
+.vehicle-primary-actions,
+.vehicle-state-actions,
+.vehicle-management-actions {
+  display: grid;
   gap: 8px;
-  margin-top: 12px;
+}
+
+.vehicle-state-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.vehicle-management-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .actions a,
 .actions button {
+  min-height: 42px;
   text-align: center;
   text-decoration: none;
   border-radius: 10px;
-  padding: 10px;
+  padding: 10px 12px;
   font-weight: 700;
+  line-height: 1.15;
 }
 
-.actions a {
+.maps-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #3b82f6;
   color: white;
+}
+
+.vehicle-state-actions button {
+  background: #374151;
+  color: #f9fafb;
+  border: 1px solid #4b5563;
+}
+
+.vehicle-state-actions button[data-estado="cargando"] {
+  border-color: #38bdf8;
+}
+
+.vehicle-state-actions button[data-estado="cargado"] {
+  border-color: #22c55e;
+}
+
+.vehicle-state-actions button[data-estado="incidencia"] {
+  border-color: #ef4444;
 }
 
 .edit {
@@ -570,7 +624,16 @@ button:disabled {
     height: 300px;
   }
 
-  .actions {
+  .vehicles-section-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vehicles-section-controls > span {
+    width: 100%;
+  }
+
+  .vehicle-state-actions {
     grid-template-columns: 1fr;
   }
 
