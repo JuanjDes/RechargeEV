@@ -295,9 +295,28 @@ function downloadVehiclesExport(json, fileName) {
 
   link.href = url;
   link.download = fileName;
+  link.style.display = "none";
+  document.body.appendChild(link);
   link.click();
 
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+
+// Detecta errores habituales de permisos del Web Share API para activar fallback sin molestar al usuario.
+function isSharePermissionError(error) {
+  const message = String(error?.message || "").toLowerCase();
+
+  return (
+    error?.name === "NotAllowedError" ||
+    error?.name === "SecurityError" ||
+    message.includes("permission") ||
+    message.includes("permiso") ||
+    message.includes("denied") ||
+    message.includes("denegado")
+  );
 }
 
 // Comparte la lista usando el diálogo nativo del sistema y cae a descarga si no está disponible.
@@ -313,8 +332,18 @@ async function shareVehiclesList() {
   };
 
   if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
-    await navigator.share(shareData);
-    return "shared";
+    try {
+      await navigator.share(shareData);
+      return "shared";
+    } catch (error) {
+      if (error.name === "AbortError") {
+        throw error;
+      }
+
+      if (!isSharePermissionError(error)) {
+        console.warn("No se pudo compartir la lista directamente:", error);
+      }
+    }
   }
 
   downloadVehiclesExport(json, fileName);
