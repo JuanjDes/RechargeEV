@@ -41,6 +41,9 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 - Borrar todos los vehículos de una sola vez con confirmación previa.
 - Guardar la lista actual completa con fecha y hora para consultarla después.
 - Ver, restaurar o borrar listas históricas guardadas.
+- Preparar la lista actual para compartirla con otro dispositivo mediante un texto JSON portable.
+- Importar una lista recibida pegando el texto exportado o seleccionando un archivo `.json`.
+- Fusionar listas importadas evitando duplicados, o reemplazar la lista actual previa confirmación.
 - Guardado local en el navegador con `localStorage`.
 - Instalable como PWA con `manifest.json` y Service Worker.
 - Carga básica offline de la interfaz mediante caché local.
@@ -57,8 +60,9 @@ La app está organizada en una única pantalla:
 1. **Formulario superior** para registrar un vehículo.
 2. **Mapa interactivo** con la posición de los vehículos registrados.
 3. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
-4. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
-5. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, borrar un vehículo o borrar todos durante el turno.
+4. **Panel de transferencia de listas** para copiar, descargar, pegar o importar una lista de vehículos entre dispositivos.
+5. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
+6. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, compartir/importar listas, borrar un vehículo o borrar todos durante el turno.
 
 ---
 
@@ -297,6 +301,40 @@ No hay API de datos ni escritura en archivos JSON para guardar vehículos. Cada 
 
 La API del servidor se usa sólo para analizar enlaces de Google Maps y devolver coordenadas; no persiste datos.
 
+### Transferencia de listas entre dispositivos
+
+La app permite pasar la lista actual de vehículos a otro dispositivo con la misma aplicación sin usar cuentas, base de datos ni sincronización automática.
+
+El botón **Compartir** prepara un paquete JSON portable con esta estructura general:
+
+```json
+{
+  "app": "RechargeEV",
+  "type": "vehicles-list",
+  "version": 1,
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "vehicles": []
+}
+```
+
+En móviles/PWA algunos navegadores bloquean el diálogo nativo de compartir o la descarga automática con errores como `Permission denied`. Para evitarlo, la app no abre `navigator.share()` automáticamente. En su lugar muestra un **panel de transferencia** dentro de la propia interfaz:
+
+- **Copiar texto**: copia el JSON para pegarlo en WhatsApp, correo, notas u otra app.
+- **Descargar JSON**: genera un archivo `.json` como alternativa.
+- Si el portapapeles también está bloqueado, el texto queda visible y seleccionado para poder copiarlo manualmente.
+
+En el otro dispositivo, el botón **Importar** abre el mismo panel en modo importación:
+
+- se puede pegar el texto recibido y pulsar **Importar texto**;
+- o seleccionar un archivo `.json` con **Elegir archivo**.
+
+Al importar, la app valida que el contenido sea una lista exportada por RechargeEV y pregunta qué hacer:
+
+- **Aceptar**: reemplaza la lista actual por la lista importada.
+- **Cancelar**: añade los vehículos importados a la lista actual evitando duplicados por matrícula y enlace de Google Maps.
+
+Esta transferencia crea una copia puntual de la lista. No mantiene sincronización continua entre dispositivos.
+
 ## Ordenación por cercanía
 
 El listado incluye el botón **Ordenar por cercanía**. Al pulsarlo, la aplicación solicita permiso para obtener tu ubicación actual mediante la API de geolocalización del navegador.
@@ -426,15 +464,20 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 13. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
 14. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
 15. Borra una lista guardada y verifica que desaparece del histórico.
-16. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
-17. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
-18. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-19. Comprueba que existe la caché `rechargeev-v2` en **Cache Storage**.
-20. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
-21. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
-22. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
-23. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
-24. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.
+16. Pulsa **Compartir** y comprueba que aparece el panel de transferencia con el JSON de la lista actual.
+17. Usa **Copiar texto** y pega el contenido en otra app, por ejemplo WhatsApp o notas.
+18. Pulsa **Importar**, pega ese texto en el panel y usa **Importar texto**.
+19. Comprueba que la app permite reemplazar la lista actual o añadir los vehículos sin duplicados.
+20. Opcionalmente usa **Descargar JSON** y luego **Elegir archivo** para validar la importación desde archivo.
+21. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
+22. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
+23. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
+24. Comprueba que existe la caché `rechargeev-v2` en **Cache Storage**.
+25. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
+26. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
+27. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
+28. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
+29. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.
 
 ---
 
@@ -454,5 +497,6 @@ Mantener una herramienta personal, ligera y fiable para gestionar recargas de ve
 - Priorizar una interfaz clara, responsive y usable de noche.
 - Validar siempre los datos antes de guardarlos.
 - Mantener rutas relativas (`./...`) en `manifest.json`, `index.html`, `app.js` y `service-worker.js` para conservar compatibilidad con GitHub Pages.
+- Evitar abrir `navigator.share()` automáticamente para exportar listas, porque en algunos móviles/PWA puede fallar con `Permission denied`; priorizar el panel manual con texto visible y seleccionable.
 - Si cambian los assets importantes de la PWA, incrementar la versión de caché, por ejemplo de `rechargeev-v2` a `rechargeev-v3`.
 - Recordar que el backend externo sigue siendo necesario para analizar URLs de Google Maps; la PWA no puede crear coordenadas nuevas completamente offline.
