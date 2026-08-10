@@ -17,6 +17,12 @@ const downloadVehicleTransferButton = document.getElementById("downloadVehicleTr
 const importVehicleTransferTextButton = document.getElementById("importVehicleTransferTextButton");
 const selectImportVehicleFileButton = document.getElementById("selectImportVehicleFileButton");
 const sortByDistanceButton = document.getElementById("sortByDistanceButton");
+const baseTransferEstimateButton = document.getElementById("baseTransferEstimateButton");
+const baseTransferEstimatePanel = document.getElementById("baseTransferEstimatePanel");
+const closeBaseTransferEstimatePanelButton = document.getElementById("closeBaseTransferEstimatePanelButton");
+const baseVehicleSelect = document.getElementById("baseVehicleSelect");
+const averageSpeedInput = document.getElementById("averageSpeedInput");
+const baseTransferEstimateResult = document.getElementById("baseTransferEstimateResult");
 const mapToggle = document.getElementById("mapToggle");
 const mapContent = document.getElementById("mapContent");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
@@ -31,6 +37,8 @@ const VEHICLES_EXPORT_APP_ID = "RechargeEV";
 const VEHICLES_EXPORT_TYPE = "vehicles-list";
 const VEHICLES_EXPORT_VERSION = 1;
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
+const BASE_TRANSFER_EXCHANGE_MINUTES = 5;
+const DEFAULT_AVERAGE_SPEED_KMH = 30;
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 const ACTIVATION_KEYS = new Set(["Enter", " "]);
 const STATE_COLORS = {
@@ -766,6 +774,171 @@ function formatDistanceKm(distanceKm) {
   return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km`;
 }
 
+// Formatea minutos estimados en una lectura compacta para el resumen de base.
+function formatDurationMinutes(minutes) {
+  if (!Number.isFinite(minutes)) return "";
+
+  const roundedMinutes = Math.round(minutes);
+  const hours = Math.floor(roundedMinutes / 60);
+  const remainingMinutes = roundedMinutes % 60;
+
+  if (hours === 0) {
+    return `${remainingMinutes} min`;
+  }
+
+  return `${hours} h ${remainingMinutes.toString().padStart(2, "0")} min`;
+}
+
+// Genera una etiqueta reconocible para el selector de posición base.
+function formatVehicleBaseOption(vehicle) {
+  const addressLine = formatSavedListVehicleAddressLine(vehicle.address);
+
+  return [vehicle.matricula || "Sin matrícula", addressLine].filter(Boolean).join(" · ");
+}
+
+// Calcula el tiempo total para traer cada vehículo a la base y volver a salir desde ella.
+function calculateBaseTransferEstimate(baseVehicleId, averageSpeedKmh) {
+  const vehicles = readVehicles();
+  const baseVehicle = vehicles.find((vehicle) => vehicle.id === baseVehicleId);
+  const speedKmh = Number(averageSpeedKmh);
+
+  if (!baseVehicle) {
+    throw new Error("Selecciona una posición base válida");
+  }
+
+  if (!isValidCoordinates(baseVehicle.coordinates)) {
+    throw new Error("La posición base no tiene coordenadas válidas");
+  }
+
+  if (!Number.isFinite(speedKmh) || speedKmh <= 0) {
+    throw new Error("Indica una velocidad media válida");
+  }
+
+  const includedVehicles = [];
+  const excludedVehicles = [];
+
+  vehicles.forEach((vehicle) => {
+    if (vehicle.id === baseVehicle.id) return;
+
+    if (!isValidCoordinates(vehicle.coordinates)) {
+      excludedVehicles.push(vehicle);
+      return;
+    }
+
+    const oneWayDistanceKm = calculateDistanceKm(baseVehicle.coordinates, vehicle.coordinates);
+    const roundTripDistanceKm = oneWayDistanceKm * 2;
+    const drivingMinutes = (roundTripDistanceKm / speedKmh) * 60;
+    const totalMinutes = drivingMinutes + BASE_TRANSFER_EXCHANGE_MINUTES;
+
+    includedVehicles.push({
+      vehicle,
+      oneWayDistanceKm,
+      roundTripDistanceKm,
+      drivingMinutes,
+      exchangeMinutes: BASE_TRANSFER_EXCHANGE_MINUTES,
+      totalMinutes,
+    });
+  });
+
+  return {
+    baseVehicle,
+    speedKmh,
+    includedVehicles,
+    excludedVehicles,
+    totalDistanceKm: includedVehicles.reduce((total, item) => total + item.roundTripDistanceKm, 0),
+    totalDrivingMinutes: includedVehicles.reduce((total, item) => total + item.drivingMinutes, 0),
+    totalExchangeMinutes: includedVehicles.reduce((total, item) => total + item.exchangeMinutes, 0),
+    totalMinutes: includedVehicles.reduce((total, item) => total + item.totalMinutes, 0),
+  };
+}
+
+// Mantiene el selector de base sincronizado con la lista actual.
+function populateBaseVehicleSelect(vehicles) {
+  const previousBaseVehicleId = baseVehicleSelect.value;
+  const vehiclesWithCoordinates = vehicles.filter((vehicle) => isValidCoordinates(vehicle.coordinates));
+
+  baseVehicleSelect.innerHTML = "";
+
+  vehiclesWithCoordinates.forEach((vehicle) => {
+    const option = document.createElement("option");
+    option.value = vehicle.id;
+    option.textContent = formatVehicleBaseOption(vehicle);
+    baseVehicleSelect.appendChild(option);
+  });
+
+  if (vehiclesWithCoordinates.some((vehicle) => vehicle.id === previousBaseVehicleId)) {
+    baseVehicleSelect.value = previousBaseVehicleId;
+  }
+}
+
+// Pinta el resumen y el desglose del cálculo de recogida desde base.
+function renderBaseTransferEstimate() {
+  const vehicles = readVehicles();
+  populateBaseVehicleSelect(vehicles);
+
+  if (vehicles.length < 2) {
+    baseTransferEstimateResult.innerHTML = `<p class="empty">Añade al menos dos vehículos para calcular el tiempo desde una base.</p>`;
+    return;
+  }
+
+  if (baseVehicleSelect.options.length === 0) {
+    baseTransferEstimateResult.innerHTML = `<p class="empty">No hay vehículos con coordenadas válidas para usar como base.</p>`;
+    return;
+  }
+
+  try {
+    const estimate = calculateBaseTransferEstimate(baseVehicleSelect.value, averageSpeedInput.value);
+    const detailItemsHtml = estimate.includedVehicles.length > 0
+      ? estimate.includedVehicles
+          .map((item) => `
+            <li>
+              <strong>${escapeHtml(item.vehicle.matricula)}</strong>
+              <span>${escapeHtml(formatDistanceKm(item.roundTripDistanceKm))} ida/vuelta · ${escapeHtml(formatDurationMinutes(item.totalMinutes))}</span>
+            </li>
+          `)
+          .join("")
+      : `<li>No hay vehículos adicionales con coordenadas para recoger.</li>`;
+    const excludedHtml = estimate.excludedVehicles.length > 0
+      ? `
+        <p class="base-transfer-estimate-warning">
+          No incluidos por falta de coordenadas: ${escapeHtml(estimate.excludedVehicles.map((vehicle) => vehicle.matricula).join(", "))}
+        </p>
+      `
+      : "";
+
+    baseTransferEstimateResult.innerHTML = `
+      <div class="base-transfer-estimate-summary">
+        <p><strong>Base:</strong> ${escapeHtml(estimate.baseVehicle.matricula)}</p>
+        <p><strong>Vehículos a traer:</strong> ${estimate.includedVehicles.length}</p>
+        <p><strong>Distancia estimada:</strong> ${escapeHtml(formatDistanceKm(estimate.totalDistanceKm))}</p>
+        <p><strong>Conducción:</strong> ${escapeHtml(formatDurationMinutes(estimate.totalDrivingMinutes))}</p>
+        <p><strong>Cambios:</strong> ${escapeHtml(formatDurationMinutes(estimate.totalExchangeMinutes))} (${BASE_TRANSFER_EXCHANGE_MINUTES} min x ${estimate.includedVehicles.length})</p>
+        <p class="base-transfer-estimate-total"><strong>Total estimado:</strong> ${escapeHtml(formatDurationMinutes(estimate.totalMinutes))}</p>
+      </div>
+      <ul class="base-transfer-estimate-details">
+        ${detailItemsHtml}
+      </ul>
+      ${excludedHtml}
+    `;
+  } catch (error) {
+    baseTransferEstimateResult.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function showBaseTransferEstimatePanel() {
+  if (!averageSpeedInput.value) {
+    averageSpeedInput.value = String(DEFAULT_AVERAGE_SPEED_KMH);
+  }
+
+  renderBaseTransferEstimate();
+  baseTransferEstimatePanel.hidden = false;
+  baseTransferEstimatePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function hideBaseTransferEstimatePanel() {
+  baseTransferEstimatePanel.hidden = true;
+}
+
 // Formatea fechas ISO con día y hora local para identificar listas guardadas.
 function formatDateTime(isoDate) {
   const date = new Date(isoDate);
@@ -1174,6 +1347,9 @@ function loadVehicles() {
 
     renderVehicles(vehiclesToRender);
     renderVehicleMarkers(vehiclesToRender);
+    if (!baseTransferEstimatePanel.hidden) {
+      renderBaseTransferEstimate();
+    }
   } catch (error) {
     vehicleList.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
     showAppMessage(error.message, "error");
@@ -1343,6 +1519,21 @@ importVehicleListInput.addEventListener("change", async () => {
 });
 
 closeVehicleTransferPanelButton.addEventListener("click", hideVehicleTransferPanel);
+
+baseTransferEstimateButton.addEventListener("click", (event) => {
+  event.stopPropagation();
+  showBaseTransferEstimatePanel();
+});
+
+baseTransferEstimateButton.addEventListener("keydown", (event) => {
+  clickButtonOnActivationKey(baseTransferEstimateButton, event);
+});
+
+closeBaseTransferEstimatePanelButton.addEventListener("click", hideBaseTransferEstimatePanel);
+
+baseVehicleSelect.addEventListener("change", renderBaseTransferEstimate);
+
+averageSpeedInput.addEventListener("input", renderBaseTransferEstimate);
 
 copyVehicleTransferButton.addEventListener("click", async () => {
   try {

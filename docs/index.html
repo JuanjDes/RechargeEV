@@ -65,6 +65,12 @@
               tabindex="0"
             >Ordenar: Off</span>
             <span
+              id="baseTransferEstimateButton"
+              class="base-transfer-estimate-button"
+              role="button"
+              tabindex="0"
+            >Tiempo base</span>
+            <span
               id="deleteAllVehiclesButton"
               class="delete-all-vehicles-button"
               role="button"
@@ -112,6 +118,26 @@
           <button id="importVehicleTransferTextButton" type="button">Importar texto</button>
           <button id="selectImportVehicleFileButton" class="secondary" type="button">Elegir archivo</button>
         </div>
+      </div>
+      <div id="baseTransferEstimatePanel" class="base-transfer-estimate-panel card" hidden>
+        <div class="base-transfer-estimate-header">
+          <h3>Tiempo estimado desde base</h3>
+          <button id="closeBaseTransferEstimatePanelButton" class="secondary" type="button">Cerrar</button>
+        </div>
+        <p class="base-transfer-estimate-help">
+          Elige qué vehículo/dirección será la base. La estimación calcula ida y vuelta desde la base a cada vehículo, sumando 5 minutos por cambio.
+        </p>
+        <div class="base-transfer-estimate-controls">
+          <label for="baseVehicleSelect">
+            Posición base
+            <select id="baseVehicleSelect"></select>
+          </label>
+          <label for="averageSpeedInput">
+            Velocidad media estimada (km/h)
+            <input id="averageSpeedInput" type="number" min="5" max="120" step="5" value="30" inputmode="decimal" />
+          </label>
+        </div>
+        <div id="baseTransferEstimateResult" class="base-transfer-estimate-result"></div>
       </div>
       <div id="vehicleList" class="vehicle-list" hidden></div>
     </section>

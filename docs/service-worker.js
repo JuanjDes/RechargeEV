@@ -1,6 +1,6 @@
 // Nombre de la caché actual de la aplicación.
 // Al cambiar esta versión, el bloque de activación eliminará cachés antiguas.
-const CACHE_NAME = 'rechargeev-v2';
+const CACHE_NAME = 'rechargeev-v3';
 
 // Recursos básicos necesarios para que RechargeEV pueda abrirse sin conexión.
 // Se usan rutas relativas para mantener compatibilidad con GitHub Pages.

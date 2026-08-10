@@ -73,6 +73,7 @@ h2 {
 }
 
 .delete-all-vehicles-button,
+.base-transfer-estimate-button,
 .save-vehicle-list-button,
 .share-vehicle-list-button,
 .import-vehicle-list-button {
@@ -94,6 +95,10 @@ h2 {
 
 .save-vehicle-list-button {
   background: #22c55e;
+}
+
+.base-transfer-estimate-button {
+  background: #f97316;
 }
 
 .share-vehicle-list-button {
@@ -126,6 +131,8 @@ h2 {
 
 .sort-by-distance-button:hover,
 .sort-by-distance-button:focus-visible,
+.base-transfer-estimate-button:hover,
+.base-transfer-estimate-button:focus-visible,
 .save-vehicle-list-button:hover,
 .save-vehicle-list-button:focus-visible,
 .share-vehicle-list-button:hover,
@@ -164,6 +171,7 @@ h2 {
 .vehicle-list[hidden],
 .saved-lists[hidden],
 .map-card[hidden],
+.base-transfer-estimate-panel[hidden],
 .vehicle-transfer-panel[hidden] {
   display: none;
 }
@@ -174,6 +182,12 @@ h2 {
   border-color: #14b8a6;
 }
 
+.base-transfer-estimate-panel {
+  display: grid;
+  gap: 12px;
+  border-color: #f97316;
+}
+
 .vehicle-transfer-header {
   display: flex;
   align-items: center;
@@ -181,14 +195,113 @@ h2 {
   gap: 12px;
 }
 
+.base-transfer-estimate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .vehicle-transfer-header h3,
+.base-transfer-estimate-header h3,
+.base-transfer-estimate-help,
 .vehicle-transfer-help {
   margin: 0;
 }
 
+.base-transfer-estimate-help,
 .vehicle-transfer-help {
   color: #d1d5db;
   line-height: 1.45;
+}
+
+.base-transfer-estimate-controls {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+}
+
+.base-transfer-estimate-controls label {
+  display: grid;
+  gap: 6px;
+  color: #f9fafb;
+  font-weight: 700;
+}
+
+.base-transfer-estimate-controls select {
+  width: 100%;
+  font: inherit;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f9fafb;
+  color: #111827;
+}
+
+.base-transfer-estimate-result {
+  display: grid;
+  gap: 12px;
+}
+
+.base-transfer-estimate-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #7c2d12;
+  border-radius: 12px;
+  background: #111827;
+}
+
+.base-transfer-estimate-summary p {
+  margin: 0;
+  color: #fed7aa;
+}
+
+.base-transfer-estimate-summary strong,
+.base-transfer-estimate-details strong {
+  color: #f9fafb;
+}
+
+.base-transfer-estimate-total {
+  grid-column: 1 / -1;
+  padding-top: 8px;
+  border-top: 1px solid #7c2d12;
+  font-size: 1.15rem;
+}
+
+.base-transfer-estimate-details {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.base-transfer-estimate-details li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  background: #111827;
+  color: #d1d5db;
+}
+
+.base-transfer-estimate-details span {
+  text-align: right;
+}
+
+.base-transfer-estimate-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  background: #451a03;
+  color: #fffbeb;
+  font-weight: 700;
 }
 
 .vehicle-transfer-text {
@@ -653,5 +766,19 @@ button:disabled {
 
   .saved-list-actions {
     grid-template-columns: 1fr;
+  }
+
+  .base-transfer-estimate-controls,
+  .base-transfer-estimate-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .base-transfer-estimate-details li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .base-transfer-estimate-details span {
+    text-align: left;
   }
 }

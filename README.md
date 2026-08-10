@@ -29,6 +29,11 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
   - primero el vehículo más cercano a tu posición,
   - después el más cercano al vehículo anterior,
   - y así sucesivamente.
+- Calcular el tiempo estimado para traer todos los vehículos a una posición base:
+  - seleccionando como base una de las direcciones de la lista;
+  - estimando ida y vuelta desde la base a cada vehículo;
+  - sumando 5 minutos por cada cambio de coche;
+  - ajustando la velocidad media estimada en km/h.
 - Cambiar el estado de cada vehículo:
   - 🟡 `pendiente`
   - 🔵 `cargando`
@@ -208,7 +213,7 @@ navigator.serviceWorker.register("./service-worker.js")
 El Service Worker crea una caché llamada:
 
 ```text
-rechargeev-v2
+rechargeev-v3
 ```
 
 Y precachea los recursos básicos de la app:
@@ -271,7 +276,7 @@ Después de publicar, conviene revisar en DevTools > **Application**:
 
 - Manifest cargado correctamente.
 - Service Worker registrado y activo.
-- Cache Storage con `rechargeev-v2`.
+- Cache Storage con `rechargeev-v3`.
 - Opción de instalación disponible en el navegador.
 
 Si se publica una nueva versión y el navegador conserva datos antiguos, puede ser útil usar:
@@ -353,6 +358,29 @@ Cuando se aplica este orden, cada tarjeta muestra una distancia aproximada:
 Los vehículos sin coordenadas válidas se mantienen al final del listado como **Sin coordenadas**.
 
 Esta ordenación sólo cambia la vista actual: no reescribe el orden guardado en `localStorage`. Si se rechaza el permiso de ubicación o el navegador no puede obtenerla, se muestra un aviso y la lista permanece sin cambios.
+
+
+## Tiempo estimado desde posición base
+
+El listado incluye el botón **Tiempo base**. Esta opción permite elegir uno de los vehículos/direcciones guardados como **posición base** y estimar cuánto se tardaría en traer el resto de vehículos hasta esa base para cargarlos.
+
+El cálculo usa las coordenadas ya guardadas en cada vehículo y una velocidad media configurable, por defecto **30 km/h**. Para cada vehículo distinto de la base se estima:
+
+```text
+ida base → vehículo + 5 min de cambio + vuelta vehículo → base
+```
+
+La app muestra:
+
+- vehículo elegido como base;
+- número de vehículos incluidos;
+- distancia total estimada de ida/vuelta;
+- tiempo estimado de conducción;
+- tiempo total de cambios, sumando 5 minutos por vehículo;
+- tiempo total estimado;
+- desglose por vehículo.
+
+Los vehículos sin coordenadas válidas no se incluyen en el cálculo y se muestran en un aviso dentro del panel. La estimación es aproximada porque usa distancia geográfica entre coordenadas, no rutas reales ni tráfico.
 
 ### Ejemplo de vehículo
 
@@ -458,26 +486,28 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 7. Edita el vehículo y comprueba que se actualizan sus datos, incluida la dirección si cambia el enlace de Maps.
 8. Cambia su estado a `cargando`, `cargado` o `incidencia`.
 9. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
-10. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
-11. Borra un vehículo y verifica que desaparece del listado y del mapa.
-12. Pulsa **Guardar lista** y comprueba que aparece una entrada en **Listas guardadas** con fecha/hora y número de vehículos.
-13. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
-14. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
-15. Borra una lista guardada y verifica que desaparece del histórico.
-16. Pulsa **Compartir** y comprueba que aparece el panel de transferencia con el JSON de la lista actual.
-17. Usa **Copiar texto** y pega el contenido en otra app, por ejemplo WhatsApp o notas.
-18. Pulsa **Importar**, pega ese texto en el panel y usa **Importar texto**.
-19. Comprueba que la app permite reemplazar la lista actual o añadir los vehículos sin duplicados.
-20. Opcionalmente usa **Descargar JSON** y luego **Elegir archivo** para validar la importación desde archivo.
-21. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
-22. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
-23. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-24. Comprueba que existe la caché `rechargeev-v2` en **Cache Storage**.
-25. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
-26. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
-27. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
-28. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
-29. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.
+10. Pulsa **Tiempo base**, selecciona un vehículo como base y comprueba que se muestra el tiempo total estimado con 5 minutos de cambio por cada vehículo incluido.
+11. Cambia la velocidad media estimada y verifica que se recalculan los tiempos.
+12. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
+13. Borra un vehículo y verifica que desaparece del listado y del mapa.
+14. Pulsa **Guardar lista** y comprueba que aparece una entrada en **Listas guardadas** con fecha/hora y número de vehículos.
+15. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
+16. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
+17. Borra una lista guardada y verifica que desaparece del histórico.
+18. Pulsa **Compartir** y comprueba que aparece el panel de transferencia con el JSON de la lista actual.
+19. Usa **Copiar texto** y pega el contenido en otra app, por ejemplo WhatsApp o notas.
+20. Pulsa **Importar**, pega ese texto en el panel y usa **Importar texto**.
+21. Comprueba que la app permite reemplazar la lista actual o añadir los vehículos sin duplicados.
+22. Opcionalmente usa **Descargar JSON** y luego **Elegir archivo** para validar la importación desde archivo.
+23. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
+24. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
+25. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
+26. Comprueba que existe la caché `rechargeev-v3` en **Cache Storage**.
+27. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
+28. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
+29. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
+30. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
+31. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.
 
 ---
 
