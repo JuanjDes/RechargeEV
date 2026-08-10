@@ -20,6 +20,20 @@ h2 {
   margin-bottom: 12px;
 }
 
+.app-logo-title {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 18px;
+}
+
+.app-logo {
+  display: block;
+  width: min(420px, 88vw);
+  max-height: 120px;
+  height: auto;
+  object-fit: contain;
+}
+
 .section-toggle {
   display: flex;
   align-items: center;
