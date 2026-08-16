@@ -30,6 +30,10 @@ const cancelEditButton = document.getElementById("cancelEditButton");
 const savedListsToggle = document.getElementById("savedListsToggle");
 const savedLists = document.getElementById("savedLists");
 const savedListsCount = document.getElementById("savedListsCount");
+const weatherToggleButton = document.getElementById("weatherToggleButton");
+const weatherPanel = document.getElementById("weatherPanel");
+const closeWeatherPanelButton = document.getElementById("closeWeatherPanelButton");
+const weatherResult = document.getElementById("weatherResult");
 const appContainer = document.querySelector(".container");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const SAVED_LISTS_STORAGE_KEY = "recargasVoltio.listasGuardadas";
@@ -37,8 +41,11 @@ const VEHICLES_EXPORT_APP_ID = "RechargeEV";
 const VEHICLES_EXPORT_TYPE = "vehicles-list";
 const VEHICLES_EXPORT_VERSION = 1;
 const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
+const WEATHER_FORECAST_API_URL = "https://api.open-meteo.com/v1/forecast";
 const BASE_TRANSFER_EXCHANGE_MINUTES = 5;
 const DEFAULT_AVERAGE_SPEED_KMH = 30;
+const WORK_SHIFT_START_HOUR = 22;
+const WORK_SHIFT_END_HOUR = 6;
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 const ACTIVATION_KEYS = new Set(["Enter", " "]);
 const STATE_COLORS = {
@@ -982,6 +989,164 @@ function getCurrentUserCoordinates() {
   });
 }
 
+// Calcula el tramo nocturno: si son antes de las 06:00, usa el turno en curso; si no, el próximo.
+function getWorkShiftRange(now = new Date()) {
+  const start = new Date(now);
+  const end = new Date(now);
+
+  if (now.getHours() < WORK_SHIFT_END_HOUR) {
+    start.setDate(start.getDate() - 1);
+    start.setHours(WORK_SHIFT_START_HOUR, 0, 0, 0);
+    end.setHours(WORK_SHIFT_END_HOUR, 0, 0, 0);
+  } else {
+    start.setHours(WORK_SHIFT_START_HOUR, 0, 0, 0);
+    end.setDate(end.getDate() + 1);
+    end.setHours(WORK_SHIFT_END_HOUR, 0, 0, 0);
+  }
+
+  return { start, end };
+}
+
+function formatHourLabel(date) {
+  return new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatShiftRangeLabel(start, end) {
+  const dateFormatter = new Intl.DateTimeFormat("es-ES", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+  return `${dateFormatter.format(start)} ${formatHourLabel(start)} - ${dateFormatter.format(end)} ${formatHourLabel(end)}`;
+}
+
+function parseOpenMeteoLocalDateTime(value) {
+  if (typeof value !== "string") return null;
+
+  const [datePart, timePart] = value.split("T");
+  const [year, month, day] = (datePart || "").split("-").map(Number);
+  const [hour = 0, minute = 0] = (timePart || "").split(":").map(Number);
+
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
+async function fetchRainForecast(coordinates) {
+  const url = new URL(WEATHER_FORECAST_API_URL);
+  url.searchParams.set("latitude", String(coordinates.lat));
+  url.searchParams.set("longitude", String(coordinates.lng));
+  url.searchParams.set("hourly", "precipitation_probability");
+  url.searchParams.set("forecast_days", "2");
+  url.searchParams.set("timezone", "auto");
+
+  let response;
+
+  try {
+    response = await fetch(url.href);
+  } catch {
+    throw new Error("No se pudo conectar con el servicio meteorológico.");
+  }
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.reason || "No se pudo obtener la previsión de lluvia.");
+  }
+
+  const times = result?.hourly?.time;
+  const probabilities = result?.hourly?.precipitation_probability;
+
+  if (!Array.isArray(times) || !Array.isArray(probabilities)) {
+    throw new Error("La previsión recibida no contiene probabilidad de lluvia por horas.");
+  }
+
+  return times.map((time, index) => ({
+    date: parseOpenMeteoLocalDateTime(time),
+    probability: Number(probabilities[index]),
+  }));
+}
+
+function calculateRainSummary(hourlyForecast, shiftRange) {
+  const shiftHours = hourlyForecast.filter((item) => (
+    item.date instanceof Date &&
+    !Number.isNaN(item.date.getTime()) &&
+    item.date >= shiftRange.start &&
+    item.date <= shiftRange.end &&
+    Number.isFinite(item.probability)
+  ));
+
+  if (shiftHours.length === 0) {
+    throw new Error("No hay datos disponibles para el tramo de 22:00 a 06:00.");
+  }
+
+  const maxProbability = Math.max(...shiftHours.map((item) => item.probability));
+  const averageProbability = Math.round(
+    shiftHours.reduce((total, item) => total + item.probability, 0) / shiftHours.length
+  );
+
+  return { shiftHours, maxProbability, averageProbability };
+}
+
+function renderRainForecast(summary, shiftRange) {
+  const hourlyItemsHtml = summary.shiftHours
+    .map((item) => `
+      <li>
+        <span>${escapeHtml(formatHourLabel(item.date))}</span>
+        <strong>${escapeHtml(String(Math.round(item.probability)))}%</strong>
+      </li>
+    `)
+    .join("");
+
+  weatherResult.innerHTML = `
+    <div class="weather-summary">
+      <p><strong>Turno:</strong> ${escapeHtml(formatShiftRangeLabel(shiftRange.start, shiftRange.end))}</p>
+      <p><strong>Máxima:</strong> ${escapeHtml(String(Math.round(summary.maxProbability)))}%</p>
+      <p><strong>Media:</strong> ${escapeHtml(String(summary.averageProbability))}%</p>
+    </div>
+    <ul class="weather-hourly-list">
+      ${hourlyItemsHtml}
+    </ul>
+  `;
+}
+
+function showWeatherPanelLoading() {
+  weatherPanel.hidden = false;
+  weatherResult.innerHTML = `<p class="empty">Obteniendo ubicación y previsión de lluvia...</p>`;
+  weatherPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function hideWeatherPanel() {
+  weatherPanel.hidden = true;
+}
+
+async function showRainForecastPanel() {
+  try {
+    weatherToggleButton.disabled = true;
+    weatherToggleButton.textContent = "Consultando lluvia...";
+    showWeatherPanelLoading();
+
+    const coordinates = await getCurrentUserCoordinates();
+    const shiftRange = getWorkShiftRange();
+    const hourlyForecast = await fetchRainForecast(coordinates);
+    const summary = calculateRainSummary(hourlyForecast, shiftRange);
+
+    renderRainForecast(summary, shiftRange);
+    showAppMessage("Previsión de lluvia actualizada para tu turno.", "success");
+  } catch (error) {
+    weatherPanel.hidden = false;
+    weatherResult.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
+    showAppMessage(error.message, "error");
+  } finally {
+    weatherToggleButton.disabled = false;
+    weatherToggleButton.textContent = "Meteorología";
+  }
+}
+
 // Ordena creando una ruta: primero el más cercano al usuario y después el más cercano al anterior.
 function sortVehiclesByNearestRoute(vehicles, startCoordinates) {
   const pendingVehicles = vehicles
@@ -1396,6 +1561,10 @@ vehicleForm.addEventListener("submit", async (event) => {
 cancelEditButton.addEventListener("click", () => {
   resetVehicleForm();
 });
+
+weatherToggleButton.addEventListener("click", showRainForecastPanel);
+
+closeWeatherPanelButton.addEventListener("click", hideWeatherPanel);
 
 // Gestiona acciones de cada tarjeta usando delegación de eventos.
 vehicleList.addEventListener("click", async (event) => {

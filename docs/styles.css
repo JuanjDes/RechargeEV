@@ -168,12 +168,103 @@ h2 {
   transform: rotate(180deg);
 }
 
+.weather-panel[hidden],
 .vehicle-list[hidden],
 .saved-lists[hidden],
 .map-card[hidden],
 .base-transfer-estimate-panel[hidden],
 .vehicle-transfer-panel[hidden] {
   display: none;
+}
+
+.weather-section {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.weather-toggle-button {
+  justify-self: center;
+  width: auto;
+  min-height: 40px;
+  border: 1px solid #38bdf8;
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: #0ea5e9;
+  color: #082f49;
+  box-shadow: 0 10px 20px rgb(14 165 233 / 0.18);
+}
+
+.weather-panel {
+  display: grid;
+  gap: 12px;
+  border-color: #38bdf8;
+}
+
+.weather-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.weather-panel-header h2,
+.weather-panel-help {
+  margin: 0;
+}
+
+.weather-panel-help {
+  color: #d1d5db;
+  line-height: 1.45;
+}
+
+.weather-result {
+  display: grid;
+  gap: 12px;
+}
+
+.weather-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #075985;
+  border-radius: 12px;
+  background: #082f49;
+}
+
+.weather-summary p {
+  margin: 0;
+  color: #e0f2fe;
+}
+
+.weather-summary p:first-child {
+  grid-column: 1 / -1;
+}
+
+.weather-hourly-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.weather-hourly-list li {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 10px;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  background: #111827;
+  color: #d1d5db;
+}
+
+.weather-hourly-list strong {
+  color: #bae6fd;
+  font-size: 1.15rem;
 }
 
 .vehicle-transfer-panel {
@@ -769,8 +860,19 @@ button:disabled {
   }
 
   .base-transfer-estimate-controls,
-  .base-transfer-estimate-summary {
+  .base-transfer-estimate-summary,
+  .weather-summary {
     grid-template-columns: 1fr;
+  }
+
+  .weather-toggle-button {
+    justify-self: center;
+    width: auto;
+  }
+
+  .weather-panel-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .base-transfer-estimate-details li {
