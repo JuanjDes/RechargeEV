@@ -204,8 +204,10 @@ h2 {
 .weather-panel-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
 }
 
 .weather-panel-header h2,
@@ -216,6 +218,7 @@ h2 {
 .weather-panel-help {
   color: #d1d5db;
   line-height: 1.45;
+  text-align: center;
 }
 
 .weather-result {
@@ -225,7 +228,9 @@ h2 {
 
 .weather-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, max-content);
+  align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 12px;
   border: 1px solid #075985;
@@ -236,10 +241,8 @@ h2 {
 .weather-summary p {
   margin: 0;
   color: #e0f2fe;
-}
-
-.weather-summary p:first-child {
-  grid-column: 1 / -1;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .weather-hourly-list {
@@ -860,8 +863,7 @@ button:disabled {
   }
 
   .base-transfer-estimate-controls,
-  .base-transfer-estimate-summary,
-  .weather-summary {
+  .base-transfer-estimate-summary {
     grid-template-columns: 1fr;
   }
 
@@ -871,7 +873,7 @@ button:disabled {
   }
 
   .weather-panel-header {
-    align-items: stretch;
+    align-items: center;
     flex-direction: column;
   }
 

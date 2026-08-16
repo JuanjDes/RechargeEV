@@ -8,6 +8,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 ![Frontend](https://img.shields.io/badge/Frontend-HTML%20%2B%20CSS%20%2B%20JS-facc15?style=for-the-badge)
 ![Datos](https://img.shields.io/badge/Datos-localStorage-38bdf8?style=for-the-badge)
 ![Mapas](https://img.shields.io/badge/Mapas-Leaflet%20%2B%20OpenStreetMap-22c55e?style=for-the-badge)
+![Meteo](https://img.shields.io/badge/Meteo-Open--Meteo-0ea5e9?style=for-the-badge)
 ![PWA](https://img.shields.io/badge/PWA-Instalable-7c3aed?style=for-the-badge)
 ![GitHub Pages](https://img.shields.io/badge/Deploy-GitHub%20Pages-111827?style=for-the-badge&logo=github&logoColor=white)
 
@@ -34,6 +35,12 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
   - estimando ida y vuelta desde la base a cada vehículo;
   - sumando 5 minutos por cada cambio de coche;
   - ajustando la velocidad media estimada en km/h.
+- Consultar la probabilidad de lluvia en tu ubicación actual para el turno de 22:00 a 06:00:
+  - mediante el botón **Meteorología**;
+  - solicitando permiso de ubicación al navegador;
+  - mostrando la probabilidad máxima y media del turno;
+  - incluyendo un desglose por horas;
+  - usando Open-Meteo sin necesidad de API key.
 - Cambiar el estado de cada vehículo:
   - 🟡 `pendiente`
   - 🔵 `cargando`
@@ -62,12 +69,13 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 
 La app está organizada en una única pantalla:
 
-1. **Formulario superior** para registrar un vehículo.
-2. **Mapa interactivo** con la posición de los vehículos registrados.
-3. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
-4. **Panel de transferencia de listas** para copiar, descargar, pegar o importar una lista de vehículos entre dispositivos.
-5. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
-6. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, compartir/importar listas, borrar un vehículo o borrar todos durante el turno.
+1. **Botón Meteorología** para consultar la probabilidad de lluvia del turno de 22:00 a 06:00.
+2. **Formulario superior** para registrar un vehículo.
+3. **Mapa interactivo** con la posición de los vehículos registrados.
+4. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
+5. **Panel de transferencia de listas** para copiar, descargar, pegar o importar una lista de vehículos entre dispositivos.
+6. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
+7. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, compartir/importar listas, borrar un vehículo o borrar todos durante el turno.
 
 ---
 
@@ -81,6 +89,8 @@ La app está organizada en una única pantalla:
 - **Leaflet**
 - **OpenStreetMap**
 - **Nominatim / OpenStreetMap** para geocodificación inversa
+- **Open-Meteo** para previsión meteorológica por horas
+- **Geolocation API** del navegador para consultar datos según la ubicación actual
 - Persistencia en `localStorage`
 - **PWA estándar** con `manifest.json` y `service-worker.js`
 - **GitHub Pages** como despliegue estático desde `docs/`
@@ -240,6 +250,7 @@ La app puede abrir la interfaz básica sin conexión, pero hay funciones que sig
 - Añadir un vehículo o cambiar su enlace de Google Maps requiere llamar al backend para analizar la URL y obtener coordenadas.
 - El mapa usa Leaflet y teselas externas de OpenStreetMap; sin conexión puede verse limitado o incompleto.
 - La geocodificación inversa también depende de servicios externos.
+- La consulta de meteorología requiere internet, permiso de ubicación y disponibilidad del servicio externo Open-Meteo.
 
 Para evitar errores técnicos como `Failed to fetch`, la interfaz muestra mensajes visibles cuando:
 
@@ -358,6 +369,30 @@ Cuando se aplica este orden, cada tarjeta muestra una distancia aproximada:
 Los vehículos sin coordenadas válidas se mantienen al final del listado como **Sin coordenadas**.
 
 Esta ordenación sólo cambia la vista actual: no reescribe el orden guardado en `localStorage`. Si se rechaza el permiso de ubicación o el navegador no puede obtenerla, se muestra un aviso y la lista permanece sin cambios.
+
+## Meteorología del turno
+
+El botón **Meteorología**, situado al principio de la pantalla, abre un panel para consultar la probabilidad de lluvia durante el turno nocturno:
+
+```text
+de 22:00 a 06:00
+```
+
+Al pulsarlo, la app solicita la ubicación actual mediante la API de geolocalización del navegador y consulta la previsión horaria en **Open-Meteo**. No requiere API key ni configuración adicional.
+
+El panel muestra:
+
+- cabecera centrada con el título **Probabilidad de lluvia**;
+- botón **Cerrar** debajo de la cabecera;
+- horario del turno debajo del botón;
+- tarjeta resumen con sólo dos datos:
+  - **Máxima** probabilidad de lluvia del turno;
+  - **Media** de probabilidad de lluvia del turno;
+- desglose por horas entre las 22:00 y las 06:00.
+
+La tarjeta de resumen mantiene **Máxima** y **Media** centradas y en una sola línea para facilitar la lectura rápida desde móvil.
+
+Esta función requiere conexión a internet y permiso de ubicación. Si el permiso se rechaza, no hay conexión o el servicio meteorológico no responde, la app muestra un aviso visible dentro de la interfaz.
 
 
 ## Tiempo estimado desde posición base
@@ -485,29 +520,32 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 6. Comprueba que, si la geocodificación inversa devuelve datos, se muestran dirección, CP y localidad/zona en la tarjeta.
 7. Edita el vehículo y comprueba que se actualizan sus datos, incluida la dirección si cambia el enlace de Maps.
 8. Cambia su estado a `cargando`, `cargado` o `incidencia`.
-9. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
-10. Pulsa **Tiempo base**, selecciona un vehículo como base y comprueba que se muestra el tiempo total estimado con 5 minutos de cambio por cada vehículo incluido.
-11. Cambia la velocidad media estimada y verifica que se recalculan los tiempos.
-12. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
-13. Borra un vehículo y verifica que desaparece del listado y del mapa.
-14. Pulsa **Guardar lista** y comprueba que aparece una entrada en **Listas guardadas** con fecha/hora y número de vehículos.
-15. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
-16. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
-17. Borra una lista guardada y verifica que desaparece del histórico.
-18. Pulsa **Compartir** y comprueba que aparece el panel de transferencia con el JSON de la lista actual.
-19. Usa **Copiar texto** y pega el contenido en otra app, por ejemplo WhatsApp o notas.
-20. Pulsa **Importar**, pega ese texto en el panel y usa **Importar texto**.
-21. Comprueba que la app permite reemplazar la lista actual o añadir los vehículos sin duplicados.
-22. Opcionalmente usa **Descargar JSON** y luego **Elegir archivo** para validar la importación desde archivo.
-23. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
-24. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
-25. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-26. Comprueba que existe la caché `rechargeev-v3` en **Cache Storage**.
-27. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
-28. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
-29. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
-30. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
-31. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.
+9. Pulsa **Meteorología**, acepta el permiso de ubicación y comprueba que aparece el panel con **Máxima**, **Media** y desglose horario de lluvia.
+10. Cierra el panel con **Cerrar** y verifica que vuelve a ocultarse correctamente.
+11. Opcionalmente rechaza el permiso de ubicación o prueba sin conexión para comprobar que aparece un mensaje de error claro.
+12. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
+13. Pulsa **Tiempo base**, selecciona un vehículo como base y comprueba que se muestra el tiempo total estimado con 5 minutos de cambio por cada vehículo incluido.
+14. Cambia la velocidad media estimada y verifica que se recalculan los tiempos.
+15. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
+16. Borra un vehículo y verifica que desaparece del listado y del mapa.
+17. Pulsa **Guardar lista** y comprueba que aparece una entrada en **Listas guardadas** con fecha/hora y número de vehículos.
+18. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
+19. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
+20. Borra una lista guardada y verifica que desaparece del histórico.
+21. Pulsa **Compartir** y comprueba que aparece el panel de transferencia con el JSON de la lista actual.
+22. Usa **Copiar texto** y pega el contenido en otra app, por ejemplo WhatsApp o notas.
+23. Pulsa **Importar**, pega ese texto en el panel y usa **Importar texto**.
+24. Comprueba que la app permite reemplazar la lista actual o añadir los vehículos sin duplicados.
+25. Opcionalmente usa **Descargar JSON** y luego **Elegir archivo** para validar la importación desde archivo.
+26. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
+27. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
+28. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
+29. Comprueba que existe la caché `rechargeev-v3` en **Cache Storage**.
+30. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
+31. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
+32. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
+33. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
+34. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.
 
 ---
 

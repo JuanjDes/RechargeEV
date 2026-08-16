@@ -1092,7 +1092,7 @@ function calculateRainSummary(hourlyForecast, shiftRange) {
   return { shiftHours, maxProbability, averageProbability };
 }
 
-function renderRainForecast(summary, shiftRange) {
+function renderRainForecast(summary) {
   const hourlyItemsHtml = summary.shiftHours
     .map((item) => `
       <li>
@@ -1104,7 +1104,6 @@ function renderRainForecast(summary, shiftRange) {
 
   weatherResult.innerHTML = `
     <div class="weather-summary">
-      <p><strong>Turno:</strong> ${escapeHtml(formatShiftRangeLabel(shiftRange.start, shiftRange.end))}</p>
       <p><strong>Máxima:</strong> ${escapeHtml(String(Math.round(summary.maxProbability)))}%</p>
       <p><strong>Media:</strong> ${escapeHtml(String(summary.averageProbability))}%</p>
     </div>
