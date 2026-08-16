@@ -55,7 +55,7 @@ const STATE_COLORS = {
   incidencia: "#ef4444",
 };
 const DEFAULT_MAP_CENTER = [40.4168, -3.7038];
-const DEFAULT_MAP_ZOOM = 2;
+const DEFAULT_MAP_ZOOM = 4;
 let editingVehicleId = null;
 let vehiclesMap = null;
 let markersLayer = null;
@@ -1393,7 +1393,7 @@ function renderVehicleMarkers(vehicles) {
       vehiclesWithCoordinates.map((vehicle) => [vehicle.coordinates.lat, vehicle.coordinates.lng])
     );
 
-    vehiclesMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+    vehiclesMap.fitBounds(bounds, { padding: [24, 24], maxZoom: DEFAULT_MAP_ZOOM });
   } else {
     vehiclesMap.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
   }
