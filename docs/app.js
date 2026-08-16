@@ -55,7 +55,7 @@ const STATE_COLORS = {
   incidencia: "#ef4444",
 };
 const DEFAULT_MAP_CENTER = [40.4168, -3.7038];
-const DEFAULT_MAP_ZOOM = 10;
+const DEFAULT_MAP_ZOOM = 14;
 let editingVehicleId = null;
 let vehiclesMap = null;
 let markersLayer = null;
