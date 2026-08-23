@@ -169,6 +169,7 @@ h2 {
 }
 
 .weather-panel[hidden],
+.stats-panel[hidden],
 .vehicle-list[hidden],
 .saved-lists[hidden],
 .map-card[hidden],
@@ -177,14 +178,22 @@ h2 {
   display: none;
 }
 
-.weather-section {
+.top-actions-section {
   display: grid;
   gap: 12px;
   margin-bottom: 16px;
 }
 
-.weather-toggle-button {
-  justify-self: center;
+.top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.weather-toggle-button,
+.stats-toggle-button {
   width: auto;
   min-height: 40px;
   border: 1px solid #38bdf8;
@@ -195,13 +204,26 @@ h2 {
   box-shadow: 0 10px 20px rgb(14 165 233 / 0.18);
 }
 
-.weather-panel {
+.stats-toggle-button {
+  border-color: #a78bfa;
+  background: #8b5cf6;
+  color: #f5f3ff;
+  box-shadow: 0 10px 20px rgb(139 92 246 / 0.18);
+}
+
+.weather-panel,
+.stats-panel {
   display: grid;
   gap: 12px;
   border-color: #38bdf8;
 }
 
-.weather-panel-header {
+.stats-panel {
+  border-color: #8b5cf6;
+}
+
+.weather-panel-header,
+.stats-panel-header {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -211,19 +233,124 @@ h2 {
 }
 
 .weather-panel-header h2,
-.weather-panel-help {
+.stats-panel-header h2,
+.weather-panel-help,
+.stats-panel-help {
   margin: 0;
 }
 
-.weather-panel-help {
+.weather-panel-help,
+.stats-panel-help {
   color: #d1d5db;
   line-height: 1.45;
   text-align: center;
 }
 
-.weather-result {
+.weather-result,
+.stats-result {
   display: grid;
   gap: 12px;
+}
+
+.stats-period-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stats-period-controls button {
+  min-height: 40px;
+  padding: 10px;
+  border: 1px solid #4c1d95;
+  background: #312e81;
+  color: #ede9fe;
+}
+
+.stats-period-controls button[aria-pressed="true"] {
+  border-color: #c4b5fd;
+  background: #a78bfa;
+  color: #2e1065;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
+}
+
+.stats-summary {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid #6d28d9;
+  border-radius: 12px;
+  background: #2e1065;
+  color: #ede9fe;
+  text-align: center;
+}
+
+.stats-summary p,
+.stats-summary small {
+  margin: 0;
+}
+
+.stats-summary strong {
+  color: #ffffff;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.stats-details-toggle {
+  justify-self: center;
+  width: auto;
+  min-height: 40px;
+  padding: 10px 14px;
+  border: 1px solid #c4b5fd;
+  border-radius: 999px;
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.stats-details-toggle[aria-expanded="true"] {
+  background: #4c1d95;
+}
+
+.stats-events-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.stats-events-list[hidden] {
+  display: none;
+}
+
+.stats-events-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #374151;
+  border-radius: 10px;
+  background: #111827;
+  color: #d1d5db;
+}
+
+.stats-events-list li.empty {
+  justify-content: center;
+  text-align: center;
+}
+
+.stats-events-list span {
+  display: grid;
+  gap: 2px;
+}
+
+.stats-events-list strong {
+  color: #f9fafb;
+}
+
+.stats-events-list small {
+  color: #c4b5fd;
 }
 
 .weather-summary {
@@ -850,6 +977,15 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .stats-period-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-events-list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .vehicles-section-controls > span {
     width: 100%;
   }
@@ -867,8 +1003,8 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .weather-toggle-button {
-    justify-self: center;
+  .weather-toggle-button,
+  .stats-toggle-button {
     width: auto;
   }
 

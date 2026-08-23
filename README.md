@@ -41,6 +41,13 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
   - mostrando la probabilidad máxima y media del turno;
   - incluyendo un desglose por horas;
   - usando Open-Meteo sin necesidad de API key.
+- Consultar estadísticas de vehículos cargados:
+  - mediante el botón **Estadísticas**, situado junto a **Meteorología**;
+  - filtrando por día, semana, mes o año;
+  - registrando automáticamente un evento cuando un vehículo pasa a estado `cargado`;
+  - evitando duplicados de la misma matrícula en el mismo día;
+  - permitiendo que la misma matrícula cuente en días distintos;
+  - ocultando las matrículas por defecto y mostrándolas sólo al pulsar **Ver matrículas**.
 - Cambiar el estado de cada vehículo:
   - 🟡 `pendiente`
   - 🔵 `cargando`
@@ -70,12 +77,13 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 La app está organizada en una única pantalla:
 
 1. **Botón Meteorología** para consultar la probabilidad de lluvia del turno de 22:00 a 06:00.
-2. **Formulario superior** para registrar un vehículo.
-3. **Mapa interactivo** con la posición de los vehículos registrados.
-4. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
-5. **Panel de transferencia de listas** para copiar, descargar, pegar o importar una lista de vehículos entre dispositivos.
-6. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
-7. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, compartir/importar listas, borrar un vehículo o borrar todos durante el turno.
+2. **Botón Estadísticas** para consultar cuántos vehículos se han marcado como cargados por día, semana, mes o año.
+3. **Formulario superior** para registrar un vehículo.
+4. **Mapa interactivo** con la posición de los vehículos registrados.
+5. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
+6. **Panel de transferencia de listas** para copiar, descargar, pegar o importar una lista de vehículos entre dispositivos.
+7. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
+8. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, compartir/importar listas, borrar un vehículo o borrar todos durante el turno.
 
 ---
 
@@ -313,6 +321,26 @@ recargasVoltio.listasGuardadas
 
 Cada lista guardada contiene un identificador, la fecha/hora `createdAt` y una copia completa de los vehículos que estaban en la lista activa en ese momento. Consultar una lista guardada no modifica la lista actual. Si se usa **Restaurar como actual**, la aplicación pide confirmación y sustituye la lista activa por una copia de esa lista histórica.
 
+Los eventos usados por las estadísticas de vehículos cargados se guardan en una tercera clave de `localStorage`:
+
+```text
+recargasVoltio.eventosCarga
+```
+
+Cada evento se crea automáticamente cuando un vehículo pasa a estado `cargado` e incluye, de forma general:
+
+```json
+{
+  "id": "uuid-generado",
+  "vehicleId": "uuid-del-vehiculo",
+  "matricula": "1234ABC",
+  "chargedAt": "2026-01-01T23:30:00.000Z",
+  "chargeDate": "2026-01-01"
+}
+```
+
+La app evita duplicar eventos para la misma **matrícula + fecha**, por lo que pulsar varias veces `Cargado` en el mismo día no aumenta el contador. La misma matrícula sí puede generar nuevos eventos en días distintos. Si se marca un vehículo como `cargado` por error y se cambia ese mismo día a `cargando`, `pendiente` o `incidencia`, se elimina sólo el evento de carga de esa matrícula en la fecha actual, manteniendo intactas las cargas históricas de otros días.
+
 No hay API de datos ni escritura en archivos JSON para guardar vehículos. Cada navegador/dispositivo mantiene su propia lista local.
 
 La API del servidor se usa sólo para analizar enlaces de Google Maps y devolver coordenadas; no persiste datos.
@@ -393,6 +421,28 @@ El panel muestra:
 La tarjeta de resumen mantiene **Máxima** y **Media** centradas y en una sola línea para facilitar la lectura rápida desde móvil.
 
 Esta función requiere conexión a internet y permiso de ubicación. Si el permiso se rechaza, no hay conexión o el servicio meteorológico no responde, la app muestra un aviso visible dentro de la interfaz.
+
+
+## Estadísticas de vehículos cargados
+
+El botón **Estadísticas**, situado junto a **Meteorología** al principio de la pantalla, abre un panel para consultar cuántos vehículos se han marcado como `cargado`.
+
+El panel permite filtrar por:
+
+- **Día**: cargas registradas hoy.
+- **Semana**: cargas de la semana actual, de lunes a domingo.
+- **Mes**: cargas del mes actual.
+- **Año**: cargas del año actual.
+
+Por defecto, el panel muestra sólo el total del periodo seleccionado. Las matrículas de los vehículos cargados permanecen ocultas para mantener una vista limpia. Si se quiere consultar el detalle, se puede pulsar **Ver matrículas**; el botón cambia a **Ocultar matrículas** para volver a plegar la lista.
+
+El contador se alimenta de eventos guardados en `localStorage` cuando un vehículo pasa a estado `cargado`. La lógica evita duplicados por **matrícula + fecha**:
+
+- una matrícula cuenta una sola vez dentro del mismo día aunque se pulse `Cargado` varias veces;
+- la misma matrícula puede contar de nuevo en días distintos;
+- si el estado se corrige el mismo día desde `cargado` a `cargando`, `pendiente` o `incidencia`, se descuenta automáticamente eliminando sólo el evento de ese día.
+
+Estas estadísticas son locales al navegador/dispositivo, igual que el resto de datos de la aplicación.
 
 
 ## Tiempo estimado desde posición base
@@ -520,29 +570,33 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 6. Comprueba que, si la geocodificación inversa devuelve datos, se muestran dirección, CP y localidad/zona en la tarjeta.
 7. Edita el vehículo y comprueba que se actualizan sus datos, incluida la dirección si cambia el enlace de Maps.
 8. Cambia su estado a `cargando`, `cargado` o `incidencia`.
-9. Pulsa **Meteorología**, acepta el permiso de ubicación y comprueba que aparece el panel con **Máxima**, **Media** y desglose horario de lluvia.
-10. Cierra el panel con **Cerrar** y verifica que vuelve a ocultarse correctamente.
-11. Opcionalmente rechaza el permiso de ubicación o prueba sin conexión para comprobar que aparece un mensaje de error claro.
-12. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
-13. Pulsa **Tiempo base**, selecciona un vehículo como base y comprueba que se muestra el tiempo total estimado con 5 minutos de cambio por cada vehículo incluido.
-14. Cambia la velocidad media estimada y verifica que se recalculan los tiempos.
-15. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
-16. Borra un vehículo y verifica que desaparece del listado y del mapa.
-17. Pulsa **Guardar lista** y comprueba que aparece una entrada en **Listas guardadas** con fecha/hora y número de vehículos.
-18. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
-19. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
-20. Borra una lista guardada y verifica que desaparece del histórico.
-21. Pulsa **Compartir** y comprueba que aparece el panel de transferencia con el JSON de la lista actual.
-22. Usa **Copiar texto** y pega el contenido en otra app, por ejemplo WhatsApp o notas.
-23. Pulsa **Importar**, pega ese texto en el panel y usa **Importar texto**.
-24. Comprueba que la app permite reemplazar la lista actual o añadir los vehículos sin duplicados.
-25. Opcionalmente usa **Descargar JSON** y luego **Elegir archivo** para validar la importación desde archivo.
-26. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
-27. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
-28. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-29. Comprueba que existe la caché `rechargeev-v3` en **Cache Storage**.
-30. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
-31. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
+9. Marca el vehículo como `cargado`, pulsa **Estadísticas** y comprueba que el contador de **Día** aumenta.
+10. Verifica que las matrículas no aparecen por defecto y que se muestran al pulsar **Ver matrículas**.
+11. Cambia entre **Día**, **Semana**, **Mes** y **Año** y comprueba que el detalle de matrículas vuelve a ocultarse al cambiar de periodo.
+12. Cambia el vehículo desde `cargado` a `cargando` o `incidencia` el mismo día y comprueba que el contador se descuenta.
+13. Pulsa **Meteorología**, acepta el permiso de ubicación y comprueba que aparece el panel con **Máxima**, **Media** y desglose horario de lluvia.
+14. Cierra el panel con **Cerrar** y verifica que vuelve a ocultarse correctamente.
+15. Opcionalmente rechaza el permiso de ubicación o prueba sin conexión para comprobar que aparece un mensaje de error claro.
+16. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
+17. Pulsa **Tiempo base**, selecciona un vehículo como base y comprueba que se muestra el tiempo total estimado con 5 minutos de cambio por cada vehículo incluido.
+18. Cambia la velocidad media estimada y verifica que se recalculan los tiempos.
+19. Pulsa **Abrir Maps** o **Navegar** en el marcador para comprobar el enlace.
+20. Borra un vehículo y verifica que desaparece del listado y del mapa.
+21. Pulsa **Guardar lista** y comprueba que aparece una entrada en **Listas guardadas** con fecha/hora y número de vehículos.
+22. Despliega la lista guardada y verifica que se pueden consultar sus vehículos sin modificar la lista activa.
+23. Usa **Restaurar como actual**, confirma la acción y comprueba que la lista activa vuelve a tener los vehículos guardados.
+24. Borra una lista guardada y verifica que desaparece del histórico.
+25. Pulsa **Compartir** y comprueba que aparece el panel de transferencia con el JSON de la lista actual.
+26. Usa **Copiar texto** y pega el contenido en otra app, por ejemplo WhatsApp o notas.
+27. Pulsa **Importar**, pega ese texto en el panel y usa **Importar texto**.
+28. Comprueba que la app permite reemplazar la lista actual o añadir los vehículos sin duplicados.
+29. Opcionalmente usa **Descargar JSON** y luego **Elegir archivo** para validar la importación desde archivo.
+30. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
+31. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
+32. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
+33. Comprueba que existe la caché `rechargeev-v3` en **Cache Storage**.
+34. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
+35. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
 32. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
 33. Vuelve a online y comprueba que aparece el mensaje de conexión restaurada.
 34. Con la PWA instalada, comparte una ubicación desde Google Maps hacia **RechargeEV** y comprueba que se precarga el campo **Enlace de Google Maps**.

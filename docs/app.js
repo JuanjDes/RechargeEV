@@ -34,9 +34,14 @@ const weatherToggleButton = document.getElementById("weatherToggleButton");
 const weatherPanel = document.getElementById("weatherPanel");
 const closeWeatherPanelButton = document.getElementById("closeWeatherPanelButton");
 const weatherResult = document.getElementById("weatherResult");
+const statsToggleButton = document.getElementById("statsToggleButton");
+const statsPanel = document.getElementById("statsPanel");
+const closeStatsPanelButton = document.getElementById("closeStatsPanelButton");
+const statsResult = document.getElementById("statsResult");
 const appContainer = document.querySelector(".container");
 const STORAGE_KEY = "recargasVoltio.vehiculos";
 const SAVED_LISTS_STORAGE_KEY = "recargasVoltio.listasGuardadas";
+const CHARGE_EVENTS_STORAGE_KEY = "recargasVoltio.eventosCarga";
 const VEHICLES_EXPORT_APP_ID = "RechargeEV";
 const VEHICLES_EXPORT_TYPE = "vehicles-list";
 const VEHICLES_EXPORT_VERSION = 1;
@@ -56,6 +61,12 @@ const STATE_COLORS = {
 };
 const DEFAULT_MAP_CENTER = [40.4168, -3.7038];
 const DEFAULT_MAP_ZOOM = 14;
+const STATS_PERIOD_LABELS = {
+  day: "hoy",
+  week: "esta semana",
+  month: "este mes",
+  year: "este año",
+};
 let editingVehicleId = null;
 let vehiclesMap = null;
 let markersLayer = null;
@@ -65,6 +76,8 @@ let networkStatusBanner = null;
 let mapOfflineNotice = null;
 let isSortByDistanceEnabled = false;
 let lastUserCoordinates = null;
+let selectedStatsPeriod = "day";
+let areStatsDetailsVisible = false;
 
 // Comprueba si el navegador considera que hay conexión disponible.
 function isOnline() {
@@ -323,6 +336,25 @@ function readVehicles() {
 // Persiste toda la lista en localStorage.
 function writeVehicles(vehicles) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles));
+}
+
+// Lee el historial de eventos de carga en localStorage de forma segura.
+function readChargeEvents() {
+  const storedEvents = localStorage.getItem(CHARGE_EVENTS_STORAGE_KEY);
+
+  if (!storedEvents) return [];
+
+  try {
+    const events = JSON.parse(storedEvents);
+    return Array.isArray(events) ? events : [];
+  } catch {
+    return [];
+  }
+}
+
+// Persiste el historial completo de eventos de carga.
+function writeChargeEvents(events) {
+  localStorage.setItem(CHARGE_EVENTS_STORAGE_KEY, JSON.stringify(events));
 }
 
 // Lee el historial de listas guardadas en localStorage de forma segura.
@@ -663,6 +695,8 @@ async function updateVehicle(id, data) {
     throw new Error("Vehículo no encontrado");
   }
 
+  const previousState = vehicle.estado;
+
   if (data.estado !== undefined) {
     if (!ALLOWED_STATES.includes(data.estado)) {
       throw new Error("Estado no válido");
@@ -708,6 +742,9 @@ async function updateVehicle(id, data) {
   }
 
   vehicle.updatedAt = new Date().toISOString();
+  if (data.estado !== undefined) {
+    syncChargeEventForVehicleState(vehicle, previousState, vehicle.estado);
+  }
   writeVehicles(vehicles);
 
   return vehicle;
@@ -1036,6 +1073,205 @@ function parseOpenMeteoLocalDateTime(value) {
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
+// Devuelve la fecha local en formato YYYY-MM-DD para agrupar cargas por día real de uso.
+function formatLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getStartOfDay(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function getEndOfDay(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+}
+
+function getStatsPeriodRange(period, referenceDate = new Date()) {
+  const start = getStartOfDay(referenceDate);
+  const end = getEndOfDay(referenceDate);
+
+  if (period === "week") {
+    const mondayOffset = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - mondayOffset);
+    end.setTime(start.getTime());
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+  }
+
+  if (period === "month") {
+    start.setDate(1);
+    end.setMonth(start.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+  }
+
+  if (period === "year") {
+    start.setMonth(0, 1);
+    end.setMonth(11, 31);
+    end.setHours(23, 59, 59, 999);
+  }
+
+  return { start, end };
+}
+
+function parseChargeEventDate(event) {
+  if (typeof event?.chargedAt !== "string") return null;
+
+  const date = new Date(event.chargedAt);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeMatricula(value) {
+  return cleanText(value, 20).toUpperCase();
+}
+
+// Guarda una carga para matrícula + día, evitando duplicados si se pulsa Cargado varias veces.
+function recordChargeEvent(vehicle, chargedAt = new Date()) {
+  const matricula = normalizeMatricula(vehicle?.matricula);
+
+  if (!matricula) return false;
+
+  const chargeDate = formatLocalDateKey(chargedAt);
+  const events = readChargeEvents();
+  const alreadyExists = events.some((event) => (
+    normalizeMatricula(event.matricula) === matricula && event.chargeDate === chargeDate
+  ));
+
+  if (alreadyExists) return false;
+
+  events.push({
+    id: createId(),
+    vehicleId: vehicle.id,
+    matricula,
+    chargedAt: chargedAt.toISOString(),
+    chargeDate,
+  });
+  writeChargeEvents(events);
+
+  return true;
+}
+
+// Elimina sólo la carga de la matrícula en el día actual cuando se corrige el estado.
+function removeTodayChargeEvent(vehicle, referenceDate = new Date()) {
+  const matricula = normalizeMatricula(vehicle?.matricula);
+
+  if (!matricula) return false;
+
+  const chargeDate = formatLocalDateKey(referenceDate);
+  const events = readChargeEvents();
+  const filteredEvents = events.filter((event) => !(
+    normalizeMatricula(event.matricula) === matricula && event.chargeDate === chargeDate
+  ));
+
+  if (filteredEvents.length === events.length) return false;
+
+  writeChargeEvents(filteredEvents);
+  return true;
+}
+
+function syncChargeEventForVehicleState(vehicle, previousState, nextState) {
+  if (nextState === "cargado") {
+    recordChargeEvent(vehicle);
+    return;
+  }
+
+  if (previousState === "cargado") {
+    removeTodayChargeEvent(vehicle);
+  }
+}
+
+function getChargeEventsForStatsPeriod(period) {
+  const { start, end } = getStatsPeriodRange(period);
+
+  return readChargeEvents()
+    .filter((event) => {
+      const eventDate = parseChargeEventDate(event);
+      return eventDate && eventDate >= start && eventDate <= end;
+    })
+    .sort((a, b) => (parseChargeEventDate(b)?.getTime() || 0) - (parseChargeEventDate(a)?.getTime() || 0));
+}
+
+function formatDateShort(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatStatsRange(period) {
+  const { start, end } = getStatsPeriodRange(period);
+
+  if (period === "day") {
+    return formatDateShort(start);
+  }
+
+  return `${formatDateShort(start)} - ${formatDateShort(end)}`;
+}
+
+function renderStats(period = selectedStatsPeriod) {
+  const events = getChargeEventsForStatsPeriod(period);
+  const periodLabel = STATS_PERIOD_LABELS[period] || "el periodo seleccionado";
+  const total = events.length;
+  const detailsToggleText = areStatsDetailsVisible ? "Ocultar matrículas" : "Ver matrículas";
+  const eventsHtml = events.length > 0
+    ? events.map((event) => {
+        const chargedAt = parseChargeEventDate(event);
+        return `
+          <li>
+            <span>
+              <strong>${escapeHtml(event.matricula || "Sin matrícula")}</strong>
+              <small>${escapeHtml(event.chargeDate || formatLocalDateKey(chargedAt || new Date()))}</small>
+            </span>
+            <span>${escapeHtml(chargedAt ? formatHourLabel(chargedAt) : "")}</span>
+          </li>
+        `;
+      }).join("")
+    : `<li class="empty">No hay vehículos cargados en este periodo.</li>`;
+
+  statsResult.innerHTML = `
+    <div class="stats-summary">
+      <p><strong>${escapeHtml(String(total))}</strong></p>
+      <p>vehículo${total === 1 ? "" : "s"} cargado${total === 1 ? "" : "s"} ${escapeHtml(periodLabel)}</p>
+      <small>${escapeHtml(formatStatsRange(period))}</small>
+    </div>
+    <button
+      class="stats-details-toggle"
+      type="button"
+      data-toggle-stats-details="true"
+      aria-expanded="${String(areStatsDetailsVisible)}"
+      ${total === 0 ? "disabled" : ""}
+    >${escapeHtml(detailsToggleText)}</button>
+    <ul class="stats-events-list" ${areStatsDetailsVisible ? "" : "hidden"}>
+      ${eventsHtml}
+    </ul>
+  `;
+}
+
+function updateStatsPeriodButtons() {
+  statsPanel.querySelectorAll("[data-stats-period]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.statsPeriod === selectedStatsPeriod));
+  });
+}
+
+function showStatsPanel() {
+  statsPanel.hidden = false;
+  hideWeatherPanel();
+  updateStatsPeriodButtons();
+  renderStats();
+  statsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function hideStatsPanel() {
+  statsPanel.hidden = true;
+}
+
 async function fetchRainForecast(coordinates) {
   const url = new URL(WEATHER_FORECAST_API_URL);
   url.searchParams.set("latitude", String(coordinates.lat));
@@ -1115,6 +1351,7 @@ function renderRainForecast(summary) {
 
 function showWeatherPanelLoading() {
   weatherPanel.hidden = false;
+  hideStatsPanel();
   weatherResult.innerHTML = `<p class="empty">Obteniendo ubicación y previsión de lluvia...</p>`;
   weatherPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1565,6 +1802,29 @@ weatherToggleButton.addEventListener("click", showRainForecastPanel);
 
 closeWeatherPanelButton.addEventListener("click", hideWeatherPanel);
 
+statsToggleButton.addEventListener("click", showStatsPanel);
+
+closeStatsPanelButton.addEventListener("click", hideStatsPanel);
+
+statsPanel.addEventListener("click", (event) => {
+  const detailsToggleButton = event.target.closest("[data-toggle-stats-details]");
+
+  if (detailsToggleButton) {
+    areStatsDetailsVisible = !areStatsDetailsVisible;
+    renderStats();
+    return;
+  }
+
+  const button = event.target.closest("[data-stats-period]");
+
+  if (!button) return;
+
+  selectedStatsPeriod = button.dataset.statsPeriod;
+  areStatsDetailsVisible = false;
+  updateStatsPeriodButtons();
+  renderStats();
+});
+
 // Gestiona acciones de cada tarjeta usando delegación de eventos.
 vehicleList.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
@@ -1604,6 +1864,9 @@ vehicleList.addEventListener("click", async (event) => {
     }
 
     loadVehicles();
+    if (!statsPanel.hidden) {
+      renderStats();
+    }
   } catch (error) {
     showAppMessage(error.message, "error");
   }

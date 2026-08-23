@@ -17,10 +17,15 @@
       <img src="logo-recargas-ev.png" alt="Recargas EV" class="app-logo" />
     </h1>
 
-    <section class="weather-section" aria-labelledby="weatherTitle">
-      <button id="weatherToggleButton" class="weather-toggle-button" type="button">
-        Meteorología
-      </button>
+    <section class="top-actions-section" aria-labelledby="weatherTitle">
+      <div class="top-actions">
+        <button id="weatherToggleButton" class="weather-toggle-button" type="button">
+          Meteorología
+        </button>
+        <button id="statsToggleButton" class="stats-toggle-button" type="button">
+          Estadísticas
+        </button>
+      </div>
       <div id="weatherPanel" class="weather-panel card" role="dialog" aria-labelledby="weatherTitle" hidden>
         <div class="weather-panel-header">
           <h2 id="weatherTitle">Probabilidad de lluvia</h2>
@@ -30,6 +35,22 @@
           de 22:00 a 06:00.
         </p>
         <div id="weatherResult" class="weather-result" aria-live="polite"></div>
+      </div>
+      <div id="statsPanel" class="stats-panel card" role="dialog" aria-labelledby="statsTitle" hidden>
+        <div class="stats-panel-header">
+          <h2 id="statsTitle">Estadísticas de carga</h2>
+          <button id="closeStatsPanelButton" class="secondary" type="button">Cerrar</button>
+        </div>
+        <p class="stats-panel-help">
+          Vehículos marcados como cargados. Si corriges el estado el mismo día, se descuenta automáticamente.
+        </p>
+        <div class="stats-period-controls" aria-label="Seleccionar periodo de estadísticas">
+          <button type="button" data-stats-period="day" aria-pressed="true">Día</button>
+          <button type="button" data-stats-period="week" aria-pressed="false">Semana</button>
+          <button type="button" data-stats-period="month" aria-pressed="false">Mes</button>
+          <button type="button" data-stats-period="year" aria-pressed="false">Año</button>
+        </div>
+        <div id="statsResult" class="stats-result" aria-live="polite"></div>
       </div>
     </section>
 
