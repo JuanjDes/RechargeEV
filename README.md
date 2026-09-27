@@ -119,6 +119,9 @@ RecargasVoltio/
 │   ├── app.js                # Lógica del frontend, mapa, localStorage y registro del Service Worker
 │   ├── manifest.json         # Manifiesto PWA instalable
 │   ├── service-worker.js     # Caché básica, activación y estrategia Network First
+│   ├── contexPersist/        # Documentación técnica y estado persistente del proyecto
+│   │   ├── arquitectura.md    # Arquitectura interna, componentes y flujos principales
+│   │   └── estado-proyecto.md # Resumen de objetivo, estado actual, restricciones y próximos desarrollos
 │   └── icons/
 │       ├── icon-192.png      # Icono PWA 192x192
 │       └── icon-512.png      # Icono PWA 512x512
@@ -606,6 +609,17 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 ## 🎯 Objetivo del proyecto
 
 Mantener una herramienta personal, ligera y fiable para gestionar recargas de vehículos eléctricos durante el trabajo, evitando hojas sueltas, notas perdidas o confusiones de estado.
+
+---
+
+## 📚 Documentación técnica adicional
+
+Para evitar duplicar detalles técnicos dentro del README, la documentación interna del proyecto se mantiene en:
+
+- `docs/contexPersist/arquitectura.md`: arquitectura, componentes, flujos de datos, integraciones y modelo conceptual.
+- `docs/contexPersist/estado-proyecto.md`: estado actual del proyecto, funcionalidades en desarrollo y restricciones principales.
+
+El README queda como documentación principal de uso, instalación, pruebas y descripción funcional de la aplicación.
 
 ---
 
