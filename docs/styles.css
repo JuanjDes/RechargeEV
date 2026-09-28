@@ -232,8 +232,8 @@ h2 {
   text-align: center;
 }
 
-.weather-panel-header h2,
-.stats-panel-header h2,
+.weather-panel-header h1,
+.stats-panel-header h1,
 .weather-panel-help,
 .stats-panel-help {
   margin: 0;

@@ -74,10 +74,10 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 
 ## 🖼️ Vista general
 
-La app está organizada en una única pantalla:
+La app está organizada en una pantalla principal y dos vistas independientes: Meteorología y Estadísticas.
 
-1. **Botón Meteorología** para consultar la probabilidad de lluvia del turno de 22:00 a 06:00.
-2. **Botón Estadísticas** para consultar cuántos vehículos se han marcado como cargados por día, semana, mes o año.
+1. **Botón Meteorología** para abrir una pantalla dedicada a la probabilidad de lluvia del turno de 22:00 a 06:00, con botón **Volver**.
+2. **Botón Estadísticas** para abrir una pantalla dedicada a las cargas por día, semana, mes o año, con botón **Volver**.
 3. **Formulario superior** para registrar un vehículo.
 4. **Mapa interactivo** con la posición de los vehículos registrados.
 5. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
@@ -234,7 +234,7 @@ navigator.serviceWorker.register("./service-worker.js")
 El Service Worker crea una caché llamada:
 
 ```text
-rechargeev-v3
+rechargeev-v5
 ```
 
 Y precachea los recursos básicos de la app:
@@ -298,7 +298,7 @@ Después de publicar, conviene revisar en DevTools > **Application**:
 
 - Manifest cargado correctamente.
 - Service Worker registrado y activo.
-- Cache Storage con `rechargeev-v3`.
+- Cache Storage con `rechargeev-v5`.
 - Opción de instalación disponible en el navegador.
 
 Si se publica una nueva versión y el navegador conserva datos antiguos, puede ser útil usar:
@@ -403,7 +403,7 @@ Esta ordenación sólo cambia la vista actual: no reescribe el orden guardado en
 
 ## Meteorología del turno
 
-El botón **Meteorología**, situado al principio de la pantalla, abre un panel para consultar la probabilidad de lluvia durante el turno nocturno:
+El botón **Meteorología**, situado al principio de la pantalla, abre una vista independiente en `#meteorologia` para consultar la probabilidad de lluvia durante el turno nocturno:
 
 ```text
 de 22:00 a 06:00
@@ -411,10 +411,10 @@ de 22:00 a 06:00
 
 Al pulsarlo, la app solicita la ubicación actual mediante la API de geolocalización del navegador y consulta la previsión horaria en **Open-Meteo**. No requiere API key ni configuración adicional.
 
-El panel muestra:
+La pantalla muestra:
 
-- cabecera centrada con el título **Probabilidad de lluvia**;
-- botón **Cerrar** debajo de la cabecera;
+- cabecera centrada con el título **Meteorología**;
+- botón **Volver** debajo de la cabecera;
 - horario del turno debajo del botón;
 - tarjeta resumen con sólo dos datos:
   - **Máxima** probabilidad de lluvia del turno;
@@ -425,19 +425,23 @@ La tarjeta de resumen mantiene **Máxima** y **Media** centradas y en una sola l
 
 Esta función requiere conexión a internet y permiso de ubicación. Si el permiso se rechaza, no hay conexión o el servicio meteorológico no responde, la app muestra un aviso visible dentro de la interfaz.
 
+Durante la consulta se oculta la pantalla principal. **Volver** y el botón **Atrás** del navegador permiten regresar conservando el formulario y los paneles de la sesión. También se puede abrir directamente `index.html#meteorologia`; en ese caso **Volver** lleva a la pantalla principal. Cada entrada a Meteorología inicia una consulta y las respuestas de consultas abandonadas se descartan.
+
 
 ## Estadísticas de vehículos cargados
 
-El botón **Estadísticas**, situado junto a **Meteorología** al principio de la pantalla, abre un panel para consultar cuántos vehículos se han marcado como `cargado`.
+El botón **Estadísticas**, situado junto a **Meteorología** al principio de la pantalla, abre una vista independiente en `#estadisticas` para consultar cuántos vehículos se han marcado como `cargado`.
 
-El panel permite filtrar por:
+Durante la consulta se oculta la pantalla principal. **Volver** y el botón **Atrás** del navegador permiten regresar conservando el formulario y los paneles de la sesión. Se admite la navegación **Adelante** y la entrada directa a `index.html#estadisticas`; desde esa entrada **Volver** lleva a la pantalla principal. El periodo seleccionado se conserva al salir y volver a entrar durante la misma sesión.
+
+La pantalla permite filtrar por:
 
 - **Día**: cargas registradas hoy.
 - **Semana**: cargas de la semana actual, de lunes a domingo.
 - **Mes**: cargas del mes actual.
 - **Año**: cargas del año actual.
 
-Por defecto, el panel muestra sólo el total del periodo seleccionado. Las matrículas de los vehículos cargados permanecen ocultas para mantener una vista limpia. Si se quiere consultar el detalle, se puede pulsar **Ver matrículas**; el botón cambia a **Ocultar matrículas** para volver a plegar la lista.
+Por defecto, la pantalla muestra sólo el total del periodo seleccionado. Las matrículas de los vehículos cargados permanecen ocultas para mantener una vista limpia. Si se quiere consultar el detalle, se puede pulsar **Ver matrículas**; el botón cambia a **Ocultar matrículas** para volver a plegar la lista.
 
 El contador se alimenta de eventos guardados en `localStorage` cuando un vehículo pasa a estado `cargado`. La lógica evita duplicados por **matrícula + fecha**:
 
@@ -573,12 +577,12 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 6. Comprueba que, si la geocodificación inversa devuelve datos, se muestran dirección, CP y localidad/zona en la tarjeta.
 7. Edita el vehículo y comprueba que se actualizan sus datos, incluida la dirección si cambia el enlace de Maps.
 8. Cambia su estado a `cargando`, `cargado` o `incidencia`.
-9. Marca el vehículo como `cargado`, pulsa **Estadísticas** y comprueba que el contador de **Día** aumenta.
+9. Marca el vehículo como `cargado`, pulsa **Estadísticas** y comprueba que se abre una pantalla independiente y el contador de **Día** aumenta. Prueba **Volver**, **Atrás/Adelante** y el acceso directo a `index.html#estadisticas`; el formulario debe conservarse al regresar a la pantalla principal.
 10. Verifica que las matrículas no aparecen por defecto y que se muestran al pulsar **Ver matrículas**.
 11. Cambia entre **Día**, **Semana**, **Mes** y **Año** y comprueba que el detalle de matrículas vuelve a ocultarse al cambiar de periodo.
 12. Cambia el vehículo desde `cargado` a `cargando` o `incidencia` el mismo día y comprueba que el contador se descuenta.
-13. Pulsa **Meteorología**, acepta el permiso de ubicación y comprueba que aparece el panel con **Máxima**, **Media** y desglose horario de lluvia.
-14. Cierra el panel con **Cerrar** y verifica que vuelve a ocultarse correctamente.
+13. Pulsa **Meteorología**, acepta el permiso de ubicación y comprueba que aparece una pantalla independiente con **Máxima**, **Media** y desglose horario de lluvia, sin formulario ni listado de vehículos.
+14. Pulsa **Volver** y verifica que regresas a la pantalla principal conservando los datos del formulario. Repite con **Atrás/Adelante** del navegador y entrando directamente a `index.html#meteorologia`. Comprueba también que volver durante la carga no reabre la pantalla al finalizar la consulta.
 15. Opcionalmente rechaza el permiso de ubicación o prueba sin conexión para comprobar que aparece un mensaje de error claro.
 16. Pulsa **Ordenar por cercanía**, acepta el permiso de ubicación y comprueba que la lista se reordena mostrando distancias aproximadas.
 17. Pulsa **Tiempo base**, selecciona un vehículo como base y comprueba que se muestra el tiempo total estimado con 5 minutos de cambio por cada vehículo incluido.
@@ -597,7 +601,7 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 30. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
 31. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 32. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-33. Comprueba que existe la caché `rechargeev-v3` en **Cache Storage**.
+33. Comprueba que existe la caché `rechargeev-v5` en **Cache Storage**.
 34. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
 35. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
 32. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.

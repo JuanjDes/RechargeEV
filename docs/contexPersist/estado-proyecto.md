@@ -42,9 +42,9 @@ La aplicación permite registrar vehículos pendientes, consultar su ubicación,
 - Restauración y borrado de listas guardadas.
 - Exportación/importación de listas mediante texto JSON portable.
 - Importación desde archivo JSON.
-- Estadísticas de vehículos cargados por día, semana, mes o año.
+- Estadísticas de vehículos cargados por día, semana, mes o año en una pantalla independiente (`#estadisticas`), con botón Volver y navegación Atrás/Adelante, conservando el formulario al regresar.
 - Registro automático de eventos cuando un vehículo pasa a estado `cargado`.
-- Consulta de probabilidad de lluvia para el turno de 22:00 a 06:00.
+- Consulta de probabilidad de lluvia para el turno de 22:00 a 06:00 en una pantalla independiente (`#meteorologia`), con botón Volver y navegación Atrás/Adelante, conservando el formulario al regresar.
 - PWA instalable.
 - Service Worker con caché básica y estrategia Network First.
 - Recepción de enlaces compartidos desde Google Maps mediante Web Share Target.

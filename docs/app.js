@@ -34,8 +34,12 @@ const weatherToggleButton = document.getElementById("weatherToggleButton");
 const weatherPanel = document.getElementById("weatherPanel");
 const closeWeatherPanelButton = document.getElementById("closeWeatherPanelButton");
 const weatherResult = document.getElementById("weatherResult");
+const homeScreen = document.getElementById("homeScreen");
+const weatherTitle = document.getElementById("weatherTitle");
+const HOME_PAGE_TITLE = document.title;
 const statsToggleButton = document.getElementById("statsToggleButton");
 const statsPanel = document.getElementById("statsPanel");
+const statsTitle = document.getElementById("statsTitle");
 const closeStatsPanelButton = document.getElementById("closeStatsPanelButton");
 const statsResult = document.getElementById("statsResult");
 const appContainer = document.querySelector(".container");
@@ -78,6 +82,8 @@ let isSortByDistanceEnabled = false;
 let lastUserCoordinates = null;
 let selectedStatsPeriod = "day";
 let areStatsDetailsVisible = false;
+let weatherRequestId = 0;
+let homeScrollPosition = 0;
 
 // Comprueba si el navegador considera que hay conexión disponible.
 function isOnline() {
@@ -1260,18 +1266,6 @@ function updateStatsPeriodButtons() {
   });
 }
 
-function showStatsPanel() {
-  statsPanel.hidden = false;
-  hideWeatherPanel();
-  updateStatsPeriodButtons();
-  renderStats();
-  statsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function hideStatsPanel() {
-  statsPanel.hidden = true;
-}
-
 async function fetchRainForecast(coordinates) {
   const url = new URL(WEATHER_FORECAST_API_URL);
   url.searchParams.set("latitude", String(coordinates.lat));
@@ -1349,37 +1343,97 @@ function renderRainForecast(summary) {
   `;
 }
 
-function showWeatherPanelLoading() {
-  weatherPanel.hidden = false;
-  hideStatsPanel();
-  weatherResult.innerHTML = `<p class="empty">Obteniendo ubicación y previsión de lluvia...</p>`;
-  weatherPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+// Las vistas usan fragmentos para funcionar también en GitHub Pages y en la PWA.
+function openWeatherScreen() {
+  openAppScreen("#meteorologia");
 }
 
-function hideWeatherPanel() {
-  weatherPanel.hidden = true;
+function openStatsScreen() {
+  openAppScreen("#estadisticas");
+}
+
+function openAppScreen(hash) {
+  if (window.location.hash !== hash) {
+    window.history.pushState({ appScreen: true }, "", hash);
+  }
+  syncAppScreen();
+}
+
+function closeAppScreen() {
+  if (window.history.state?.appScreen || window.history.state?.weatherScreen) {
+    window.history.back();
+    return;
+  }
+
+  // Una entrada directa a una vista debe volver a la app, no salir de ella.
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  syncAppScreen();
+}
+
+function syncAppScreen() {
+  const showWeather = window.location.hash === "#meteorologia";
+  const showStats = window.location.hash === "#estadisticas";
+  const wasWeatherVisible = !weatherPanel.hidden;
+  const wasStatsVisible = !statsPanel.hidden;
+
+  if (showWeather === wasWeatherVisible && showStats === wasStatsVisible) return;
+
+  if (!homeScreen.hidden) {
+    homeScrollPosition = window.scrollY;
+  }
+
+  if (wasWeatherVisible && !showWeather) {
+    // Invalida respuestas pendientes al salir de Meteorología.
+    weatherRequestId += 1;
+    weatherResult.removeAttribute("aria-busy");
+  }
+
+  homeScreen.hidden = showWeather || showStats;
+  weatherPanel.hidden = !showWeather;
+  statsPanel.hidden = !showStats;
+
+  if (showWeather || showStats) {
+    document.title = showWeather ? "Meteorología · RechargeEV" : "Estadísticas · RechargeEV";
+    (showWeather ? weatherTitle : statsTitle).focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+
+    if (showWeather) {
+      showRainForecastPanel();
+    } else {
+      updateStatsPeriodButtons();
+      renderStats();
+    }
+  } else {
+    document.title = HOME_PAGE_TITLE;
+    (wasStatsVisible ? statsToggleButton : weatherToggleButton).focus({ preventScroll: true });
+    window.scrollTo(0, homeScrollPosition);
+    refreshMapSize();
+  }
 }
 
 async function showRainForecastPanel() {
-  try {
-    weatherToggleButton.disabled = true;
-    weatherToggleButton.textContent = "Consultando lluvia...";
-    showWeatherPanelLoading();
+  const requestId = ++weatherRequestId;
+  weatherResult.setAttribute("aria-busy", "true");
+  weatherResult.innerHTML = `<p class="empty">Obteniendo ubicación y previsión de lluvia...</p>`;
 
+  try {
     const coordinates = await getCurrentUserCoordinates();
+    if (requestId !== weatherRequestId) return;
+
     const shiftRange = getWorkShiftRange();
     const hourlyForecast = await fetchRainForecast(coordinates);
+    if (requestId !== weatherRequestId) return;
+
     const summary = calculateRainSummary(hourlyForecast, shiftRange);
 
-    renderRainForecast(summary, shiftRange);
-    showAppMessage("Previsión de lluvia actualizada para tu turno.", "success");
+    renderRainForecast(summary);
   } catch (error) {
-    weatherPanel.hidden = false;
+    if (requestId !== weatherRequestId) return;
     weatherResult.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`;
-    showAppMessage(error.message, "error");
   } finally {
-    weatherToggleButton.disabled = false;
-    weatherToggleButton.textContent = "Meteorología";
+    if (requestId === weatherRequestId) {
+      weatherResult.removeAttribute("aria-busy");
+    }
   }
 }
 
@@ -1798,13 +1852,13 @@ cancelEditButton.addEventListener("click", () => {
   resetVehicleForm();
 });
 
-weatherToggleButton.addEventListener("click", showRainForecastPanel);
+weatherToggleButton.addEventListener("click", openWeatherScreen);
 
-closeWeatherPanelButton.addEventListener("click", hideWeatherPanel);
+closeWeatherPanelButton.addEventListener("click", closeAppScreen);
 
-statsToggleButton.addEventListener("click", showStatsPanel);
+statsToggleButton.addEventListener("click", openStatsScreen);
 
-closeStatsPanelButton.addEventListener("click", hideStatsPanel);
+closeStatsPanelButton.addEventListener("click", closeAppScreen);
 
 statsPanel.addEventListener("click", (event) => {
   const detailsToggleButton = event.target.closest("[data-toggle-stats-details]");
@@ -2117,7 +2171,10 @@ function initApp() {
   window.addEventListener("resize", refreshMapSize);
   window.addEventListener("online", updateNetworkStatus);
   window.addEventListener("offline", updateNetworkStatus);
+  window.addEventListener("popstate", syncAppScreen);
+  window.addEventListener("hashchange", syncAppScreen);
   registerServiceWorker();
+  syncAppScreen();
 }
 
 initApp();

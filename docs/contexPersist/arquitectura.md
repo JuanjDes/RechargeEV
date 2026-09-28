@@ -125,8 +125,8 @@ Funciones relevantes:
 Define la estructura visual de la aplicación:
 
 - Cabecera con logo.
-- Panel de meteorología.
-- Panel de estadísticas.
+- Pantalla independiente de meteorología, accesible mediante `#meteorologia` y con botón Volver.
+- Pantalla independiente de estadísticas, accesible mediante `#estadisticas` y con botón Volver.
 - Formulario para añadir o editar vehículos.
 - Sección desplegable de mapa.
 - Sección de listado de vehículos.
@@ -164,6 +164,8 @@ Responsabilidades principales:
 - Estimar tiempo de recogida desde una base seleccionada.
 - Consultar previsión de lluvia con Open-Meteo.
 - Registrar el Service Worker.
+
+La navegación a Meteorología y Estadísticas usa los fragmentos `#meteorologia` y `#estadisticas` y el historial del navegador, sin recargar el documento. `homeScreen`, `weatherPanel` y `statsPanel` son las tres vistas principales; sólo una está visible. Comparten las funciones de navegación `openAppScreen`, `closeAppScreen` y `syncAppScreen`. Al volver se conservan el formulario y los paneles de la sesión y se descartan las respuestas meteorológicas pendientes. Las entradas directas a ambas rutas también ofrecen regreso a la pantalla principal. Los filtros y el cálculo de estadísticas siguen utilizando los eventos locales existentes.
 
 Constantes importantes:
 
@@ -204,7 +206,7 @@ El `share_target` permite que la app instalada aparezca como destino al comparti
 
 Define:
 
-- Nombre de caché: `rechargeev-v3`.
+- Nombre de caché: `rechargeev-v5`.
 - App shell con archivos básicos:
   - `index.html`
   - `styles.css`
@@ -246,7 +248,7 @@ app.js actualiza el vehículo en localStorage
         ↓
 app.js registra evento de carga del día si no existe duplicado
         ↓
-Panel de estadísticas puede mostrar el conteo por día, semana, mes o año
+Pantalla de estadísticas puede mostrar el conteo por día, semana, mes o año
 ```
 
 ### Compartir/importar lista
