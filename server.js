@@ -1,8 +1,10 @@
 const express = require("express");
 const path = require("path");
+const { LIMITS, OutboundError, validateUrl, withTimeout, createSafeHttpClient } = require("./lib/safe-http");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const outbound = createSafeHttpClient();
 
 // Acepta cuerpos JSON pequeños en las peticiones a la API.
 app.use(express.json({ limit: "20kb" }));
@@ -84,7 +86,7 @@ function buildAddressPayload(nominatimResult) {
   };
 }
 
-async function reverseGeocodeCoordinates(coordinates) {
+async function reverseGeocodeCoordinates(coordinates, signal) {
   if (!coordinates) return null;
 
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
@@ -95,24 +97,15 @@ async function reverseGeocodeCoordinates(coordinates) {
   url.searchParams.set("accept-language", "es");
 
   try {
-    const response = await fetch(url.href, {
-      headers: {
-        "User-Agent": "RecargasVoltio/1.0 (reverse-geocoding)",
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) return null;
-
-    const result = await response.json();
+    const result = await outbound.getNominatimJson(url.href, { signal });
     return buildAddressPayload(result);
   } catch {
     return null;
   }
 }
 
-async function buildMapsAnalysisResponse(coordinates, finalUrl) {
-  const address = await reverseGeocodeCoordinates(coordinates);
+async function buildMapsAnalysisResponse(coordinates, finalUrl, signal) {
+  const address = await reverseGeocodeCoordinates(coordinates, signal);
 
   return {
     found: true,
@@ -132,50 +125,34 @@ app.post("/api/analyze-maps-url", async (req, res) => {
   let parsedUrl;
 
   try {
-    parsedUrl = new URL(mapsUrl);
+    parsedUrl = validateUrl(mapsUrl);
   } catch {
-    return res.status(400).json({ found: false, message: "La URL no tiene un formato válido" });
-  }
-
-  if (parsedUrl.protocol !== "https:") {
-    return res.status(400).json({ found: false, message: "La URL debe empezar por https://" });
+    return res.status(400).json({ found: false, message: "Usa un enlace HTTPS de Google Maps permitido, sin credenciales ni puertos especiales" });
   }
 
   try {
-    // Sigue redirecciones de URLs cortas para llegar a la URL final de Maps.
-    const response = await fetch(parsedUrl.href, {
-      redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 RecargasVoltio/1.0",
-      },
+    const result = await withTimeout(LIMITS.totalMs, async (signal) => {
+      const { finalUrl, body } = await outbound.getMapsPage(parsedUrl.href, {
+        signal,
+        hasCoordinates: (url) => Boolean(extractCoordinates(url)),
+      });
+      const coordinates = extractCoordinates(finalUrl) || extractCoordinates(body);
+      if (coordinates) return buildMapsAnalysisResponse(coordinates, finalUrl, signal);
+      return { found: false, finalUrl, message: "No se encontraron coordenadas en la URL analizada" };
     });
-
-    const finalUrl = response.url || parsedUrl.href;
-    const finalUrlCoordinates = extractCoordinates(finalUrl);
-
-    // Primero intenta extraer coordenadas desde la URL final.
-    if (finalUrlCoordinates) {
-      return res.json(await buildMapsAnalysisResponse(finalUrlCoordinates, finalUrl));
-    }
-
-    // Si la URL no las contiene, busca también dentro del HTML recibido.
-    const body = await response.text();
-    const bodyCoordinates = extractCoordinates(body);
-
-    if (bodyCoordinates) {
-      return res.json(await buildMapsAnalysisResponse(bodyCoordinates, finalUrl));
-    }
-
-    return res.json({ found: false, finalUrl, message: "No se encontraron coordenadas en la URL analizada" });
+    return res.json(result);
   } catch (error) {
-    return res.status(502).json({
+    return res.status(error instanceof OutboundError ? error.status : 502).json({
       found: false,
-      message: "No se pudo analizar la URL de Google Maps",
-      detail: error.message,
+      message: error instanceof OutboundError ? error.message : "No se pudo analizar la URL de Google Maps",
     });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Aplicación disponible en http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Aplicación disponible en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

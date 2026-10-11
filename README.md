@@ -480,7 +480,7 @@ Los vehículos sin coordenadas válidas no se incluyen en el cálculo y se muest
 {
   "id": "uuid-generado",
   "matricula": "1234ABC",
-  "mapsUrl": "https://maps.google.com/...",
+  "mapsUrl": "https://www.google.com/maps?q=40.4168,-3.7038",
   "coordinates": {
     "lat": 40.4168,
     "lng": -3.7038
@@ -531,7 +531,7 @@ Entrada esperada:
 
 ```json
 {
-  "url": "https://maps.google.com/..."
+  "url": "https://www.google.com/maps?q=40.4168,-3.7038"
 }
 ```
 
@@ -564,6 +564,31 @@ Respuesta cuando encuentra coordenadas:
 ```
 
 Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coordenadas tanto de la URL final como del contenido recibido y, si las encuentra, hace geocodificación inversa para devolver datos de dirección. La dirección puede ser parcial o `null` si el servicio externo no devuelve información útil.
+
+### Protección de las conexiones del backend
+
+`lib/safe-http.js` controla todas las conexiones salientes del análisis de ubicaciones, sin dependencias adicionales:
+
+- Sólo HTTPS en el puerto 443, sin usuario ni contraseña en la URL y con una longitud máxima de 4096 caracteres.
+- Dominios exactos `google.com`, `www.google.com`, `google.es` y `www.google.es`, únicamente en `/maps` y sus subrutas; `maps.google.com` y `maps.google.es` también admiten `/`.
+- Enlaces cortos `https://maps.app.goo.gl/IDENTIFICADOR` y `https://goo.gl/maps/IDENTIFICADOR`.
+- Hasta cinco redirecciones, validando cada destino antes de resolver DNS o conectar. Se rechazan bucles, dominios ajenos, puertos especiales y rutas no permitidas.
+- Validación de todas las IP devueltas por DNS y conexión fijada a una IP pública comprobada. Se rechazan redes privadas, locales, reservadas y mecanismos de transición IPv6; se mantienen la verificación del certificado TLS y el nombre de servidor original.
+- Plazo total de 15 segundos, incluyendo DNS, redirecciones, descarga y geocodificación. Nominatim tiene además un máximo propio de 5 segundos.
+- Descargas limitadas a 2 MiB para Maps y 256 KiB para Nominatim, comprobando tanto `Content-Length` como los bytes realmente recibidos. Las cabeceras se limitan a 16 KiB. Se solicita contenido sin compresión y se rechaza una compresión inesperada.
+- Nominatim sólo puede consultarse en `https://nominatim.openstreetmap.org/reverse` y no se siguen sus redirecciones.
+
+Si una URL permitida ya contiene coordenadas, no se descarga la página de Maps. Si falla únicamente Nominatim antes del plazo total, se mantienen las coordenadas y se devuelve `address: null`.
+
+**Compatibilidad:** no se admiten otros dominios regionales de Google ni páginas intermedias de consentimiento como `consent.google.com`. Si Google envía a uno de esos destinos, la consulta se rechaza; utiliza un enlace de Maps que incluya las coordenadas. Añadir un dominio o ruta exige ampliar explícitamente la política y sus pruebas.
+
+### Pruebas automáticas del backend
+
+```bash
+npm test
+```
+
+La suite usa el ejecutor integrado de Node.js, DNS/HTTPS simulados y una API local de prueba. Comprueba URLs permitidas y prohibidas, IP internas, fijación de IP, redirecciones, tamaños, plazos y compatibilidad de la respuesta JSON. No necesita llamar a Google ni a Nominatim.
 
 ---
 

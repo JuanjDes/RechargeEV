@@ -34,6 +34,8 @@ La aplicación permite registrar vehículos pendientes, consultar su ubicación,
 - Borrado completo de la lista con confirmación.
 - Obtención de coordenadas desde enlaces de Google Maps mediante backend auxiliar.
 - Obtención de dirección postal aproximada mediante geocodificación inversa.
+- Protección de conexiones del backend: dominios/rutas permitidos, validación de cada redirección, bloqueo de IP internas y conexión fijada a una IP pública validada, con límites de tiempo y descarga para Maps y Nominatim.
+- Pruebas automáticas de seguridad y compatibilidad del backend mediante `npm test`, sin servicios externos reales.
 - Visualización de vehículos en mapa con Leaflet.
 - Apertura directa de ubicaciones en Google Maps.
 - Ordenación manual por cercanía usando geolocalización del navegador.

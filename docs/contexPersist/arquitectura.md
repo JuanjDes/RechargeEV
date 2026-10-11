@@ -94,6 +94,12 @@ Responsabilidades:
 - Configurar CORS abierto para permitir llamadas desde GitHub Pages u otros dominios.
 - Exponer el endpoint `POST /api/analyze-maps-url`.
 
+Las conexiones salientes se realizan mediante `lib/safe-http.js`, usando `node:https`, `node:dns/promises` y `node:net`, sin dependencias nuevas. El módulo valida una lista explícita de dominios/rutas de Maps y cada redirección, comprueba todas las IP resueltas y fija la conexión a una IP pública validada conservando TLS/SNI. No se reutilizan conexiones de un agente compartido ni se realiza una segunda resolución DNS al conectar.
+
+Los límites están centralizados en `LIMITS`: cinco redirecciones, 15 segundos para toda la operación, 2 MiB para Maps y 256 KiB para Nominatim; este último tiene además 5 segundos y no admite redirecciones. Se cuentan los bytes descargados y se abortan conexiones que exceden el plazo o tamaño. La espera de DNS también expira; una resolución tardía no abre una conexión. Las URLs que ya incluyen coordenadas evitan la descarga de Maps.
+
+Se admiten las variantes `.com` y `.es` enumeradas en el README y los enlaces cortos de Maps. Los destinos de consentimiento y otros dominios regionales se rechazan. `test/safe-http.test.js` verifica estas reglas y la respuesta de la API con servicios externos simulados; se ejecuta mediante `npm test`.
+
 #### Endpoint `POST /api/analyze-maps-url`
 
 Este endpoint recibe una URL de Google Maps y devuelve, cuando es posible:
@@ -106,8 +112,8 @@ Este endpoint recibe una URL de Google Maps y devuelve, cuando es posible:
 Flujo interno:
 
 1. Valida que el cuerpo contenga `url`.
-2. Comprueba que la URL sea válida y use HTTPS.
-3. Sigue redirecciones de enlaces cortos de Google Maps.
+2. Comprueba que la URL sea válida, use HTTPS y pertenezca a los dominios y rutas permitidos.
+3. Resuelve enlaces cortos comprobando cada redirección y la IP pública de cada conexión, dentro de los límites de tiempo y tamaño.
 4. Intenta extraer coordenadas desde la URL final.
 5. Si no las encuentra, busca coordenadas dentro del HTML recibido.
 6. Si encuentra coordenadas, consulta Nominatim para obtener datos de dirección.
