@@ -91,12 +91,16 @@ Responsabilidades:
 - Crear la aplicación Express.
 - Servir los archivos estáticos ubicados en `docs/`.
 - Aceptar cuerpos JSON pequeños con `express.json({ limit: "20kb" })`.
-- Configurar CORS abierto para permitir llamadas desde GitHub Pages u otros dominios.
+- Restringir CORS de `/api` a los orígenes explícitos de GitHub Pages y Render, con configuración para otros entornos.
 - Exponer el endpoint `POST /api/analyze-maps-url`.
 
 Antes del parser JSON de ese endpoint se ejecuta `lib/rate-limit.js`: una ventana fija de 60 segundos admite 20 peticiones por cliente y 60 globales por proceso. Se usa `req.ip`, normalizando IPv4 mapeada y agrupando IPv6 por `/64`. El límite global acota también la memoria del registro de clientes. Los excesos devuelven JSON con estado 429 y `Retry-After`, conservando CORS, antes de iniciar conexiones externas. Las peticiones inválidas consumen cuota; `OPTIONS` y archivos estáticos quedan fuera. No se añaden dependencias ni almacenamiento persistente.
 
 Express usa `trust proxy=0` en local y, como configuración inicial, `1` si `RENDER=true`. `TRUST_PROXY_HOPS` permite indicar de 0 a 5 saltos; debe corresponder a la cadena real de proxies, que se debe verificar al desplegar. Nunca se toma sin validar la primera IP de `X-Forwarded-For`. Las pruebas cubren cabeceras suplantadas con cero y un salto. Los contadores se reinician al reiniciar el proceso y no se comparten entre instancias; usuarios bajo una IP pública común comparten cuota.
+
+`lib/api-http.js` centraliza CORS y los errores. La lista predeterminada de producción contiene `https://juanjdes.github.io` y `https://rechargeev-backend.onrender.com`; en desarrollo añade localhost/127.0.0.1 en los puertos 3000 y 8080. `CORS_ALLOWED_ORIGINS` sustituye la lista con orígenes exactos separados por comas. No se permiten comodines, rutas ni credenciales. CORS se ejecuta antes de la cuota y del parser JSON; las peticiones sin Origin siguen permitidas y sujetas a la cuota, porque CORS no es autenticación.
+
+Los errores se serializan como `{ found: false, code, message }` y, en el 429, `retryAfter`. El manejador final de Express convierte errores del parser y fallos internos en mensajes controlados, sin trazas ni datos recibidos. Los fallos externos conservan 502/504; un análisis sin coordenadas conserva HTTP 200 y añade `COORDINATES_NOT_FOUND`. CORS también se aplica a respuestas de error para orígenes autorizados. Se admiten POST y preflight OPTIONS con Content-Type, se expone Retry-After y se deshabilita la caché de las respuestas de API. No se habilitan cookies/credenciales. El frontend maneja respuestas HTML o JSON incompleto con mensajes legibles.
 
 Las conexiones salientes se realizan mediante `lib/safe-http.js`, usando `node:https`, `node:dns/promises` y `node:net`, sin dependencias nuevas. El módulo valida una lista explícita de dominios/rutas de Maps y cada redirección, comprueba todas las IP resueltas y fija la conexión a una IP pública validada conservando TLS/SNI. No se reutilizan conexiones de un agente compartido ni se realiza una segunda resolución DNS al conectar.
 
@@ -390,7 +394,7 @@ Disponible en:
 http://localhost:8080/
 ```
 
-Esta modalidad permite probar la PWA estática, aunque las funciones que dependen del análisis de URLs necesitan que `MAPS_ANALYSIS_API_URL` apunte a un backend disponible.
+Desde localhost/127.0.0.1 el frontend usa el backend local en el puerto 3000; para analizar enlaces con el servidor estático de 8080 también debe estar arrancado `npm start`. La versión publicada conserva la URL del backend de Render.
 
 ### GitHub Pages
 

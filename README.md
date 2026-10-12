@@ -178,6 +178,8 @@ http://localhost:8080/
 
 > Importante: no abras `index.html` directamente con `file://`, porque el Service Worker y algunas capacidades PWA requieren HTTP/HTTPS.
 
+Desde `localhost` o `127.0.0.1`, el frontend consulta el backend local en el puerto 3000. Para analizar enlaces mientras sirves `docs/` en el puerto 8080, mantén también `npm start` ejecutándose. En la versión publicada sigue usando el backend de Render.
+
 ---
 
 ## 📲 PWA instalable
@@ -601,6 +603,27 @@ Los contadores son locales al proceso, tienen como máximo 60 entradas con la co
 **Proxy de Render:** se usa `req.ip` de Express. En local `trust proxy` es 0; con `RENDER=true`, el valor predeterminado es 1 (sólo el salto más cercano). Se puede ajustar con `TRUST_PROXY_HOPS`, un entero de 0 a 5, si la infraestructura añade proxies. No se confía indiscriminadamente en toda la cabecera `X-Forwarded-For`. Tras el despliegue debe verificarse que la cadena real identifica al cliente y no agrupa usuarios bajo la IP de un proxy; esta cadena no se ha comprobado desde el entorno local. Véanse las guías de [Express sobre proxies](https://expressjs.com/en/guide/behind-proxies/) y [Render sobre protección frente al abuso](https://render.com/articles/how-render-handles-ddos-attacks).
 
 Para comprobar el bloqueo sin consultar servicios externos, envía 21 POST consecutivos al servidor **local** con `{"url":"https://example.com/"}`: los primeros 20 devuelven 400 y el siguiente 429. Tras el tiempo indicado en `Retry-After`, vuelve a admitirse la validación. La suite automatizada comprueba también la recuperación con reloj simulado, sin esperar un minuto ni generar tráfico de prueba en producción.
+
+### CORS y respuestas de error
+
+La política de `lib/api-http.js` se aplica a `/api`. En producción permite sólo estos orígenes exactos:
+
+- `https://juanjdes.github.io` (la ruta `/RechargeEV/` o cualquier otra ruta no forma parte del origen).
+- `https://rechargeev-backend.onrender.com` (frontend servido por el propio backend).
+
+Sin `NODE_ENV=production` ni `RENDER=true`, se añaden `http://localhost:3000`, `http://127.0.0.1:3000` y sus variantes en el puerto 8080. Para sustituir la lista, configura `CORS_ALLOWED_ORIGINS` con orígenes HTTP/HTTPS separados por comas, sin rutas, credenciales ni comodines. Por ejemplo:
+
+```text
+CORS_ALLOWED_ORIGINS=https://juanjdes.github.io,https://rechargeev-backend.onrender.com
+```
+
+Un `Origin` ajeno o `null` recibe 403 antes de analizar el cuerpo o consultar servicios externos. Las peticiones sin `Origin` siguen admitidas y sujetas al límite de peticiones: CORS controla el acceso desde navegadores, no autentica clientes ni impide llamadas directas. Tampoco distingue aplicaciones alojadas bajo distintas rutas del mismo origen. Los navegadores no podrán leer el mensaje del 403 de un origen rechazado y mostrarán el aviso de conexión del frontend. Véase la [documentación de CORS de Express](https://expressjs.com/en/resources/middleware/cors/).
+
+Las comprobaciones previas `OPTIONS` permiten `POST` con `Content-Type`; no se habilitan credenciales. Se devuelve `Vary: Origin`, se expone `Retry-After` y se conservan las cabeceras CORS en errores para los orígenes autorizados. Las respuestas de la API usan `Cache-Control: no-store`.
+
+Los errores tienen formato `{ found: false, code, message }`, con `retryAfter` adicional en el 429. Los principales estados son: 400 para URL/JSON inválidos, 403 para origen/cabeceras no admitidos, 404 para endpoints inexistentes, 405 para métodos incorrectos, 413 para cuerpos mayores de 20 KiB, 415 para tipos/codificaciones no admitidos, 429 para cuota agotada, 502 para fallos externos, 504 para plazos agotados y 500 para errores internos inesperados. Se exige `application/json` y se rechazan cuerpos comprimidos. No se devuelven trazas, rutas internas, cuerpo recibido ni mensajes técnicos de las excepciones. La ausencia de coordenadas mantiene el contrato existente: HTTP 200 con `found: false` y `code: "COORDINATES_NOT_FOUND"`.
+
+El frontend conserva el formulario y muestra los mensajes del backend. Si Render u otro intermediario devuelve HTML o una respuesta incompleta, muestra un aviso comprensible para reintentar, sin errores técnicos del parser JSON.
 
 ### Pruebas automáticas del backend
 

@@ -3,6 +3,7 @@ const path = require("path");
 const { LIMITS, OutboundError, validateUrl, withTimeout, createSafeHttpClient } = require("./lib/safe-http");
 const { getMapsPlace, extractEmbeddedPlaceCoordinates } = require("./lib/maps-place");
 const { createMapsRateLimit, getTrustProxyHops } = require("./lib/rate-limit");
+const { createApiCors, sendApiError, requireJson, apiErrorHandler } = require("./lib/api-http");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,18 +12,7 @@ const outbound = createSafeHttpClient();
 // En local no se confía en cabeceras de proxy; Render usa un salto por defecto.
 app.set("trust proxy", getTrustProxyHops());
 
-// Permite consumir la API desde GitHub Pages u otros dominios.
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
+app.use("/api", createApiCors());
 
 // Sirve el frontend estático ubicado en docs/.
 app.use(express.static(path.join(__dirname, "docs")));
@@ -117,11 +107,12 @@ async function buildMapsAnalysisResponse(coordinates, finalUrl, signal) {
   };
 }
 
-app.post("/api/analyze-maps-url", createMapsRateLimit(), express.json({ limit: "20kb" }), async (req, res) => {
+app.post("/api/analyze-maps-url", createMapsRateLimit(), requireJson,
+  express.json({ limit: "20kb", inflate: false }), async (req, res, next) => {
   const mapsUrl = typeof req.body?.url === "string" ? req.body.url.trim() : "";
 
   if (!mapsUrl) {
-    return res.status(400).json({ found: false, message: "La URL de Google Maps es obligatoria" });
+    return sendApiError(res, 400, "MISSING_MAPS_URL", "La URL de Google Maps es obligatoria");
   }
 
   let parsedUrl;
@@ -129,7 +120,7 @@ app.post("/api/analyze-maps-url", createMapsRateLimit(), express.json({ limit: "
   try {
     parsedUrl = validateUrl(mapsUrl);
   } catch {
-    return res.status(400).json({ found: false, message: "Usa un enlace HTTPS de Google Maps permitido, sin credenciales ni puertos especiales" });
+    return sendApiError(res, 400, "INVALID_MAPS_URL", "Usa un enlace HTTPS de Google Maps permitido, sin credenciales ni puertos especiales");
   }
 
   try {
@@ -147,16 +138,21 @@ app.post("/api/analyze-maps-url", createMapsRateLimit(), express.json({ limit: "
         coordinates = extractCoordinates(body);
       }
       if (coordinates) return buildMapsAnalysisResponse(coordinates, finalUrl, signal);
-      return { found: false, finalUrl, message: "No se encontraron coordenadas en la URL analizada" };
+      return { found: false, code: "COORDINATES_NOT_FOUND", finalUrl, message: "No se encontraron coordenadas en la URL analizada" };
     });
     return res.json(result);
   } catch (error) {
-    return res.status(error instanceof OutboundError ? error.status : 502).json({
-      found: false,
-      message: error instanceof OutboundError ? error.message : "No se pudo analizar la URL de Google Maps",
-    });
+    return next(error instanceof OutboundError ? error
+      : new OutboundError("UPSTREAM_ERROR", "No se pudo analizar la URL de Google Maps"));
   }
 });
+
+app.all("/api/analyze-maps-url", (req, res) => {
+  res.setHeader("Allow", "POST, OPTIONS");
+  return sendApiError(res, 405, "METHOD_NOT_ALLOWED", "Sólo se admite POST para analizar ubicaciones.");
+});
+app.use("/api", (req, res) => sendApiError(res, 404, "NOT_FOUND", "El endpoint solicitado no existe."));
+app.use(apiErrorHandler);
 
 if (require.main === module) {
   app.listen(PORT, () => {

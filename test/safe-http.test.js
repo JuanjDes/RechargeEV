@@ -235,7 +235,11 @@ async function startTestApi(client, t) {
   await new Promise((resolve) => server.once("listening", resolve));
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
   const endpoint = `http://127.0.0.1:${server.address().port}/api/analyze-maps-url`;
-  return (url) => fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+  const post = (url) => fetch(endpoint, { method: "POST", headers: {
+    "Content-Type": "application/json", Origin: "https://juanjdes.github.io",
+  }, body: JSON.stringify({ url }) });
+  post.endpoint = endpoint;
+  return post;
 }
 
 test("API conserva coordenadas y dirección opcional, y rechaza URLs inválidas", async (t) => {
@@ -319,7 +323,7 @@ test("API limita antes de parsear JSON o conectar, con CORS y sin bloquear la we
   }
   response = await post("https://www.google.com/maps?q=40,-3");
   assert.equal(response.status, 429);
-  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://juanjdes.github.io");
   assert.ok(Number(response.headers.get("Retry-After")) > 0);
   assert.match((await response.json()).message, /Espera/);
   assert.equal(f.calls.length, 0);
@@ -330,4 +334,88 @@ test("API limita antes de parsear JSON o conectar, con CORS y sin bloquear la we
   assert.equal((await malformed.json()).found, false);
   assert.equal((await fetch(response.url, { method: "OPTIONS" })).status, 204);
   assert.equal((await fetch(new URL("/", response.url))).status, 200);
+});
+
+test("CORS admite Pages/Render, rechaza otros orígenes y conserva clientes sin Origin", async (t) => {
+  const f = fixture();
+  const post = await startTestApi(f.client, t);
+  const request = (origin, method = "POST", extra = {}) => fetch(post.endpoint, {
+    method, headers: { ...(origin === undefined ? {} : { Origin: origin }), "Content-Type": "application/json", ...extra },
+    ...(method === "POST" ? { body: JSON.stringify({ url: "https://example.com/" }) } : {}),
+  });
+  for (const origin of ["https://juanjdes.github.io", "https://rechargeev-backend.onrender.com"]) {
+    const response = await request(origin);
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), origin);
+    assert.match(response.headers.get("Vary"), /Origin/);
+    assert.equal(response.headers.get("Access-Control-Expose-Headers"), "Retry-After");
+    assert.equal(response.headers.get("Access-Control-Allow-Credentials"), null);
+  }
+  for (const origin of ["https://evil.test", "null", "https://juanjdes.github.io.evil.test", "https://juanjdes.github.io/RechargeEV/"]) {
+    for (const method of ["POST", "OPTIONS"]) {
+      const response = await request(origin, method);
+      assert.equal(response.status, 403);
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), null);
+      assert.equal((await response.json()).code, "ORIGIN_NOT_ALLOWED");
+    }
+  }
+  const direct = await request(undefined);
+  assert.equal(direct.status, 400);
+  assert.equal(direct.headers.get("Access-Control-Allow-Origin"), null);
+  const preflight = await request("https://juanjdes.github.io", "OPTIONS", {
+    "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type",
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS");
+  assert.equal((await request("https://juanjdes.github.io", "OPTIONS", { "Access-Control-Request-Method": "DELETE" })).status, 405);
+  assert.equal((await request("https://juanjdes.github.io", "OPTIONS", { "Access-Control-Request-Headers": "content-type,x-secret" })).status, 403);
+  assert.equal(f.calls.length, 0);
+});
+
+test("errores de entrada devuelven JSON seguro con CORS y código estable", async (t) => {
+  const f = fixture();
+  const post = await startTestApi(f.client, t);
+  for (const [body, contentType, encoding, status, code] of [
+    ['{"private-value":', "application/json", null, 400, "INVALID_JSON"],
+    [JSON.stringify({ url: "x".repeat(21 * 1024) }), "application/json", null, 413, "PAYLOAD_TOO_LARGE"],
+    ['{"url":"private-value"}', "text/plain", null, 415, "UNSUPPORTED_MEDIA_TYPE"],
+    ["{}", "application/json; charset=iso-8859-1", null, 415, "UNSUPPORTED_ENCODING"],
+    ["private-value", "application/json", "gzip", 415, "UNSUPPORTED_ENCODING"],
+    ["{}", "application/json", null, 400, "MISSING_MAPS_URL"],
+  ]) {
+    const response = await fetch(post.endpoint, { method: "POST", headers: {
+      Origin: "https://juanjdes.github.io", "Content-Type": contentType,
+      ...(encoding ? { "Content-Encoding": encoding } : {}),
+    }, body });
+    assert.equal(response.status, status);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://juanjdes.github.io");
+    assert.equal(response.headers.get("Cache-Control"), "no-store");
+    const text = await response.text();
+    assert.doesNotMatch(text, /private-value|SyntaxError|stack|node_modules|<!DOCTYPE/i);
+    assert.equal(JSON.parse(text).code, code);
+    assert.equal(JSON.parse(text).found, false);
+  }
+  const wrongMethod = await fetch(post.endpoint);
+  assert.equal(wrongMethod.status, 405);
+  assert.equal(wrongMethod.headers.get("Allow"), "POST, OPTIONS");
+  assert.equal((await wrongMethod.json()).code, "METHOD_NOT_ALLOWED");
+  const missing = await fetch(new URL("/api/missing", post.endpoint));
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).code, "NOT_FOUND");
+  assert.equal(f.calls.length, 0);
+});
+
+test("los fallos externos no exponen mensajes internos y conservan CORS", async (t) => {
+  const errors = [new Error("private-value /internal/path"),
+    new safe.OutboundError("TIMEOUT", "private-value"),
+    new safe.OutboundError("BLOCKED_ADDRESS", "private-value")];
+  const post = await startTestApi({ getMapsPage: async () => { throw errors.shift(); } }, t);
+  for (const [status, code] of [[502, "UPSTREAM_ERROR"], [504, "UPSTREAM_TIMEOUT"], [502, "UPSTREAM_ERROR"]]) {
+    const response = await post(MAPS);
+    assert.equal(response.status, status);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://juanjdes.github.io");
+    const text = await response.text();
+    assert.doesNotMatch(text, /private-value|internal\/path|stack/);
+    assert.equal(JSON.parse(text).code, code);
+  }
 });

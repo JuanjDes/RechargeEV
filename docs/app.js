@@ -49,7 +49,9 @@ const CHARGE_EVENTS_STORAGE_KEY = "recargasVoltio.eventosCarga";
 const VEHICLES_EXPORT_APP_ID = "RechargeEV";
 const VEHICLES_EXPORT_TYPE = "vehicles-list";
 const VEHICLES_EXPORT_VERSION = 1;
-const MAPS_ANALYSIS_API_URL = "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
+const MAPS_ANALYSIS_API_URL = ["localhost", "127.0.0.1"].includes(window.location.hostname)
+  ? `http://${window.location.hostname}:3000/api/analyze-maps-url`
+  : "https://rechargeev-backend.onrender.com/api/analyze-maps-url";
 const WEATHER_FORECAST_API_URL = "https://api.open-meteo.com/v1/forecast";
 const BASE_TRANSFER_EXCHANGE_MINUTES = 5;
 const DEFAULT_AVERAGE_SPEED_KMH = 30;
@@ -1610,10 +1612,18 @@ async function analyzeMapsUrl(mapsUrl) {
     throw new Error("No se pudo conectar con el servidor para analizar el enlace de Maps.");
   }
 
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error("El servidor no ha devuelto una respuesta válida. Espera unos segundos y vuelve a intentarlo.");
+  }
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("El servidor ha devuelto una respuesta incompleta. Vuelve a intentarlo.");
+  }
 
   if (!response.ok) {
-    throw new Error(result.message || "No se pudo analizar la URL");
+    throw new Error(typeof result.message === "string" ? result.message : "No se pudo analizar la URL. Vuelve a intentarlo.");
   }
 
   if (!result.found || !isValidCoordinates(result.coordinates)) {

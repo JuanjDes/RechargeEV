@@ -37,6 +37,7 @@ La aplicación permite registrar vehículos pendientes, consultar su ubicación,
 - Obtención de dirección postal aproximada mediante geocodificación inversa.
 - Protección de conexiones del backend: dominios/rutas permitidos, validación de cada redirección, bloqueo de IP internas y conexión fijada a una IP pública validada, con límites de tiempo y descarga para Maps y Nominatim.
 - Limitación de abuso en el endpoint de Maps: 20 peticiones por IP/red IPv6 y 60 globales por minuto y proceso, con respuesta 429 y tiempo de espera. Contadores en memoria; configuración de proxies documentada para verificar al desplegar en Render.
+- CORS restringido a orígenes explícitos de Pages/Render, configurable mediante `CORS_ALLOWED_ORIGINS`, con desarrollo local separado. Errores de API uniformes en JSON sin detalles internos y mensajes legibles ante respuestas incompletas del servidor.
 - Pruebas automáticas de seguridad y compatibilidad del backend mediante `npm test`, sin servicios externos reales.
 - Visualización de vehículos en mapa con Leaflet.
 - Apertura directa de ubicaciones en Google Maps.
