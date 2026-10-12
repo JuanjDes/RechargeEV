@@ -2,13 +2,14 @@ const express = require("express");
 const path = require("path");
 const { LIMITS, OutboundError, validateUrl, withTimeout, createSafeHttpClient } = require("./lib/safe-http");
 const { getMapsPlace, extractEmbeddedPlaceCoordinates } = require("./lib/maps-place");
+const { createMapsRateLimit, getTrustProxyHops } = require("./lib/rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const outbound = createSafeHttpClient();
 
-// Acepta cuerpos JSON pequeños en las peticiones a la API.
-app.use(express.json({ limit: "20kb" }));
+// En local no se confía en cabeceras de proxy; Render usa un salto por defecto.
+app.set("trust proxy", getTrustProxyHops());
 
 // Permite consumir la API desde GitHub Pages u otros dominios.
 app.use((req, res, next) => {
@@ -116,7 +117,7 @@ async function buildMapsAnalysisResponse(coordinates, finalUrl, signal) {
   };
 }
 
-app.post("/api/analyze-maps-url", async (req, res) => {
+app.post("/api/analyze-maps-url", createMapsRateLimit(), express.json({ limit: "20kb" }), async (req, res) => {
   const mapsUrl = typeof req.body?.url === "string" ? req.body.url.trim() : "";
 
   if (!mapsUrl) {

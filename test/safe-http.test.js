@@ -308,3 +308,26 @@ test("API valida las redirecciones del mapa incrustado", async (t) => {
   assert.equal(f.lookups.length, 1);
   assert.equal(f.calls.length, 1);
 });
+
+test("API limita antes de parsear JSON o conectar, con CORS y sin bloquear la web ni OPTIONS", async (t) => {
+  const f = fixture();
+  const post = await startTestApi(f.client, t);
+  let response;
+  for (let index = 0; index < 20; index += 1) {
+    response = await post("https://example.com/");
+    assert.equal(response.status, 400);
+  }
+  response = await post("https://www.google.com/maps?q=40,-3");
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
+  assert.ok(Number(response.headers.get("Retry-After")) > 0);
+  assert.match((await response.json()).message, /Espera/);
+  assert.equal(f.calls.length, 0);
+  const malformed = await fetch(response.url, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: "{invalid",
+  });
+  assert.equal(malformed.status, 429);
+  assert.equal((await malformed.json()).found, false);
+  assert.equal((await fetch(response.url, { method: "OPTIONS" })).status, 204);
+  assert.equal((await fetch(new URL("/", response.url))).status, 200);
+});

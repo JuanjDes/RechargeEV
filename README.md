@@ -586,6 +586,22 @@ Cuando se reconoce un identificador de lugar, se omite la página normal de Maps
 
 **Compatibilidad:** no se admiten otros dominios regionales de Google ni páginas intermedias de consentimiento como `consent.google.com`. Si Google envía a uno de esos destinos, la consulta se rechaza; utiliza un enlace de Maps que incluya las coordenadas. Añadir un dominio o ruta exige ampliar explícitamente la política y sus pruebas.
 
+### Límite de peticiones al endpoint
+
+`POST /api/analyze-maps-url` aplica `lib/rate-limit.js`, sin dependencias nuevas:
+
+- Hasta **20 peticiones por IP** y **60 en total por instancia** en una ventana fija de **60 segundos**. Los valores están centralizados en `RATE_LIMITS`.
+- IPv4 y su representación mapeada en IPv6 comparten cuota; las direcciones IPv6 se agrupan por red `/64` para limitar la rotación de direcciones temporales.
+- Se cuentan también los intentos inválidos, antes de parsear JSON o consultar Google/Nominatim. Las peticiones rechazadas no alargan la ventana.
+- Al superar una cuota se responde **429**, con cabecera `Retry-After` y JSON `{ found: false, message, retryAfter }`. La interfaz muestra el mensaje y conserva el formulario para reintentar. No hay reintentos automáticos.
+- La página estática y las peticiones `OPTIONS` no consumen cuota. Las respuestas 429 conservan CORS y no se cachean.
+
+Los contadores son locales al proceso, tienen como máximo 60 entradas con la configuración inicial y se vacían al abrir la siguiente ventana. Se pierden al reiniciar o desplegar; varias instancias mantienen cuotas independientes. Los usuarios que comparten IP pública también comparten cuota. La ventana fija permite ráfagas a ambos lados de su límite temporal: esto reduce abuso, pero no sustituye autenticación ni protección de red. Para varias instancias con cuota compartida haría falta un almacén externo; los vehículos siguen guardándose sólo en `localStorage`.
+
+**Proxy de Render:** se usa `req.ip` de Express. En local `trust proxy` es 0; con `RENDER=true`, el valor predeterminado es 1 (sólo el salto más cercano). Se puede ajustar con `TRUST_PROXY_HOPS`, un entero de 0 a 5, si la infraestructura añade proxies. No se confía indiscriminadamente en toda la cabecera `X-Forwarded-For`. Tras el despliegue debe verificarse que la cadena real identifica al cliente y no agrupa usuarios bajo la IP de un proxy; esta cadena no se ha comprobado desde el entorno local. Véanse las guías de [Express sobre proxies](https://expressjs.com/en/guide/behind-proxies/) y [Render sobre protección frente al abuso](https://render.com/articles/how-render-handles-ddos-attacks).
+
+Para comprobar el bloqueo sin consultar servicios externos, envía 21 POST consecutivos al servidor **local** con `{"url":"https://example.com/"}`: los primeros 20 devuelven 400 y el siguiente 429. Tras el tiempo indicado en `Retry-After`, vuelve a admitirse la validación. La suite automatizada comprueba también la recuperación con reloj simulado, sin esperar un minuto ni generar tráfico de prueba en producción.
+
 ### Pruebas automáticas del backend
 
 ```bash

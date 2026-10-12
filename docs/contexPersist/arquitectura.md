@@ -94,6 +94,10 @@ Responsabilidades:
 - Configurar CORS abierto para permitir llamadas desde GitHub Pages u otros dominios.
 - Exponer el endpoint `POST /api/analyze-maps-url`.
 
+Antes del parser JSON de ese endpoint se ejecuta `lib/rate-limit.js`: una ventana fija de 60 segundos admite 20 peticiones por cliente y 60 globales por proceso. Se usa `req.ip`, normalizando IPv4 mapeada y agrupando IPv6 por `/64`. El límite global acota también la memoria del registro de clientes. Los excesos devuelven JSON con estado 429 y `Retry-After`, conservando CORS, antes de iniciar conexiones externas. Las peticiones inválidas consumen cuota; `OPTIONS` y archivos estáticos quedan fuera. No se añaden dependencias ni almacenamiento persistente.
+
+Express usa `trust proxy=0` en local y, como configuración inicial, `1` si `RENDER=true`. `TRUST_PROXY_HOPS` permite indicar de 0 a 5 saltos; debe corresponder a la cadena real de proxies, que se debe verificar al desplegar. Nunca se toma sin validar la primera IP de `X-Forwarded-For`. Las pruebas cubren cabeceras suplantadas con cero y un salto. Los contadores se reinician al reiniciar el proceso y no se comparten entre instancias; usuarios bajo una IP pública común comparten cuota.
+
 Las conexiones salientes se realizan mediante `lib/safe-http.js`, usando `node:https`, `node:dns/promises` y `node:net`, sin dependencias nuevas. El módulo valida una lista explícita de dominios/rutas de Maps y cada redirección, comprueba todas las IP resueltas y fija la conexión a una IP pública validada conservando TLS/SNI. No se reutilizan conexiones de un agente compartido ni se realiza una segunda resolución DNS al conectar.
 
 Los límites están centralizados en `LIMITS`: cinco redirecciones, 15 segundos para toda la operación, 2 MiB para Maps y 256 KiB para Nominatim; este último tiene además 5 segundos y no admite redirecciones. Se cuentan los bytes descargados y se abortan conexiones que exceden el plazo o tamaño. La espera de DNS también expira; una resolución tardía no abre una conexión. Las URLs que ya incluyen coordenadas evitan la descarga de Maps.
