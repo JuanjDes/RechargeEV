@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const { LIMITS, OutboundError, validateUrl, withTimeout, createSafeHttpClient } = require("./lib/safe-http");
+const { getMapsPlace, extractEmbeddedPlaceCoordinates } = require("./lib/maps-place");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -134,9 +135,16 @@ app.post("/api/analyze-maps-url", async (req, res) => {
     const result = await withTimeout(LIMITS.totalMs, async (signal) => {
       const { finalUrl, body } = await outbound.getMapsPage(parsedUrl.href, {
         signal,
-        hasCoordinates: (url) => Boolean(extractCoordinates(url)),
+        stopAtUrl: (url) => Boolean(extractCoordinates(url) || getMapsPlace(url)),
       });
-      const coordinates = extractCoordinates(finalUrl) || extractCoordinates(body);
+      let coordinates = extractCoordinates(finalUrl);
+      const place = getMapsPlace(finalUrl);
+      if (!coordinates && place) {
+        const embedded = await outbound.getMapsPage(place.embedUrl, { signal });
+        coordinates = extractEmbeddedPlaceCoordinates(embedded.body, place.id);
+      } else if (!coordinates) {
+        coordinates = extractCoordinates(body);
+      }
       if (coordinates) return buildMapsAnalysisResponse(coordinates, finalUrl, signal);
       return { found: false, finalUrl, message: "No se encontraron coordenadas en la URL analizada" };
     });

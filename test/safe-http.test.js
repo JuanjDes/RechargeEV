@@ -158,9 +158,12 @@ test("detecta bucles y limita a cinco saltos", async () => {
 
 test("coordenadas en URL evitan descargar Maps, tras validar el destino", async () => {
   const f = fixture();
-  assert.equal((await f.client.getMapsPage(MAPS, { hasCoordinates: () => true })).body, "");
+  assert.equal((await f.client.getMapsPage(MAPS, { stopAtUrl: () => true })).body, "");
   assert.equal(f.calls.length, 0);
-  await assert.rejects(f.client.getMapsPage("https://evil.test/", { hasCoordinates: () => true }), { code: "INVALID_URL" });
+  await assert.rejects(f.client.getMapsPage("https://evil.test/", { stopAtUrl: () => true }), { code: "INVALID_URL" });
+  const redirect = fixture([{ status: 302, headers: { location: "https://evil.test/maps/place/!1s0x1:0x2" } }]);
+  await assert.rejects(redirect.client.getMapsPage(SHORT, { stopAtUrl: (url) => url.includes("!1s") }), { code: "INVALID_URL" });
+  assert.equal(redirect.calls.length, 1);
 });
 
 test("corta descargas grandes tanto con Content-Length como sin él", async () => {
@@ -219,25 +222,29 @@ test("Nominatim tiene política, límites y prohibición de redirección propios
   assert.equal(stalled.responses[0].destroyed, true);
 });
 
-test("API conserva coordenadas y dirección opcional, y rechaza URLs inválidas", async (t) => {
-  const f = fixture([
-    { body: '{"address":{"road":"Prueba"}}' }, { status: 503 },
-    { body: "<html>40.123,-3.456</html>" }, { body: "{}" },
-    { status: 302, headers: { location: "https://www.google.com/maps?q=40.4168,-3.7038" } }, { body: "{}" },
-  ]);
+async function startTestApi(client, t) {
   const filename = path.resolve(__dirname, "../server.js");
   const realRequire = createRequire(filename);
   const moduleObject = { exports: {} };
   const loadServer = new Function("require", "module", "__dirname", readFileSync(filename, "utf8"));
   loadServer(
-    (name) => name === "./lib/safe-http" ? { ...safe, createSafeHttpClient: () => f.client } : realRequire(name),
+    (name) => name === "./lib/safe-http" ? { ...safe, createSafeHttpClient: () => client } : realRequire(name),
     moduleObject, path.dirname(filename)
   );
   const server = moduleObject.exports.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
   const endpoint = `http://127.0.0.1:${server.address().port}/api/analyze-maps-url`;
-  const post = (url) => fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+  return (url) => fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+}
+
+test("API conserva coordenadas y dirección opcional, y rechaza URLs inválidas", async (t) => {
+  const f = fixture([
+    { body: '{"address":{"road":"Prueba"}}' }, { status: 503 },
+    { body: "<html>40.123,-3.456</html>" }, { body: "{}" },
+    { status: 302, headers: { location: "https://www.google.com/maps?q=40.4168,-3.7038" } }, { body: "{}" },
+  ]);
+  const post = await startTestApi(f.client, t);
   const bad = await post("https://127.0.0.1/");
   assert.equal(bad.status, 400);
   assert.equal((await bad.json()).found, false);
@@ -258,4 +265,46 @@ test("API conserva coordenadas y dirección opcional, y rechaza URLs inválidas"
   const shortLink = await (await post(SHORT)).json();
   assert.equal(shortLink.found, true);
   assert.equal(shortLink.finalUrl, validUrl);
+});
+
+for (const [shortId, placeId, cid, lat, lng] of [
+  ["x2USLymKWoJrFcpp9", "0xd42299ca0250903:0x2e486396300bd83f", "3335025020770179135", 40.4826811, -3.7078931],
+  ["NMjg9Z3cz4fXXQtD6", "0xd422665b24cfcbf:0x72647358f236b224", "8242840043852837412", 40.3808697, -3.67579],
+]) test(`API resuelve el enlace móvil ${shortId} por su lugar, sin descargar la página genérica`, async (t) => {
+  const finalUrl = `https://www.google.com/maps/place/Prueba/data=!4m2!3m1!1s${placeId}!18m1!1e1?entry=gps`;
+  const f = fixture([
+    { status: 302, headers: { location: finalUrl } },
+    // Fragmento mínimo del formato initEmbed observado en las respuestas reales.
+    { body: `initEmbed([[[3000,-4.57,41.34]],null,[["${placeId}","Prueba",[${lat},${lng}]]]]);` },
+    { body: '{"address":{"road":"Prueba"}}' },
+  ]);
+  const post = await startTestApi(f.client, t);
+  const response = await post(`https://maps.app.goo.gl/${shortId}`);
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.found, true);
+  assert.deepEqual(result.coordinates, { lat, lng });
+  assert.equal(result.finalUrl, finalUrl);
+  assert.equal(result.address.road, "Prueba");
+  assert.equal(f.calls.length, 3);
+  assert.equal(f.calls[1].url, `https://www.google.com/maps/embed?pb=!1m3!3m2!1m1!4s${cid}`);
+  assert.ok(f.calls[2].url.startsWith("https://nominatim.openstreetmap.org/reverse?"));
+});
+
+test("API no asigna el centro del mapa si Google no devuelve el lugar solicitado", async (t) => {
+  const f = fixture([{ body: 'initEmbed([[[3000,-4.57,41.34]],[["0x1:0x2","Otro",[40,-3]]]]);' }]);
+  const post = await startTestApi(f.client, t);
+  const result = await (await post("https://www.google.com/maps/place/Prueba/data=!1s0x1:0x3")).json();
+  assert.equal(result.found, false);
+  assert.equal(f.calls.length, 1);
+});
+
+test("API valida las redirecciones del mapa incrustado", async (t) => {
+  const f = fixture([{ status: 302, headers: { location: "https://127.0.0.1/maps" } }]);
+  const post = await startTestApi(f.client, t);
+  const response = await post("https://www.google.com/maps/place/Prueba/data=!1s0x1:0x3");
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).found, false);
+  assert.equal(f.lookups.length, 1);
+  assert.equal(f.calls.length, 1);
 });

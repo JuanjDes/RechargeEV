@@ -565,6 +565,8 @@ Respuesta cuando encuentra coordenadas:
 
 Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coordenadas tanto de la URL final como del contenido recibido y, si las encuentra, hace geocodificación inversa para devolver datos de dirección. La dirección puede ser parcial o `null` si el servicio externo no devuelve información útil.
 
+Los enlaces compartidos que contienen un identificador de lugar (`!1s0x…:0x…`) pero no coordenadas se resuelven mediante el mapa incrustado de ese lugar. `lib/maps-place.js` obtiene el identificador y lee los datos JSON de `initEmbed`, sin ejecutar scripts externos. Sólo acepta las coordenadas del registro cuyo identificador coincide con el solicitado; no utiliza el centro genérico del mapa ni las coordenadas de otro lugar.
+
 ### Protección de las conexiones del backend
 
 `lib/safe-http.js` controla todas las conexiones salientes del análisis de ubicaciones, sin dependencias adicionales:
@@ -579,6 +581,8 @@ Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coor
 - Nominatim sólo puede consultarse en `https://nominatim.openstreetmap.org/reverse` y no se siguen sus redirecciones.
 
 Si una URL permitida ya contiene coordenadas, no se descarga la página de Maps. Si falla únicamente Nominatim antes del plazo total, se mantienen las coordenadas y se devuelve `address: null`.
+
+Cuando se reconoce un identificador de lugar, se omite la página normal de Maps y se consulta `/maps/embed` en `www.google.com`, pasando por las mismas comprobaciones de seguridad. La resolución del enlace corto, la consulta del mapa incrustado y Nominatim comparten el plazo total de 15 segundos. El formato de `initEmbed` depende de Google; si no contiene el lugar esperado, se informa de que no se encontraron coordenadas.
 
 **Compatibilidad:** no se admiten otros dominios regionales de Google ni páginas intermedias de consentimiento como `consent.google.com`. Si Google envía a uno de esos destinos, la consulta se rechaza; utiliza un enlace de Maps que incluya las coordenadas. Añadir un dominio o ruta exige ampliar explícitamente la política y sus pruebas.
 

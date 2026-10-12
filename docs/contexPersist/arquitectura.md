@@ -100,6 +100,10 @@ Los límites están centralizados en `LIMITS`: cinco redirecciones, 15 segundos 
 
 Se admiten las variantes `.com` y `.es` enumeradas en el README y los enlaces cortos de Maps. Los destinos de consentimiento y otros dominios regionales se rechazan. `test/safe-http.test.js` verifica estas reglas y la respuesta de la API con servicios externos simulados; se ejecuta mediante `npm test`.
 
+Los enlaces con un identificador `!1s0x…:0x…` se resuelven con `lib/maps-place.js`: una vez validada la URL, `getMapsPage` permite detener la descarga mediante `stopAtUrl`. El servidor convierte la segunda parte del identificador a CID con `BigInt` y consulta una URL construida en `https://www.google.com/maps/embed`. Así evita descargar una página normal que puede devolver un mapa genérico o pedir consentimiento. La nueva consulta conserva todas las validaciones del cliente HTTP y comparte el plazo total de la operación.
+
+El contenido de `initEmbed` se interpreta con `JSON.parse`, sin ejecutar JavaScript externo. Se busca el registro del identificador exacto y se validan sus coordenadas; el centro del mapa y los lugares distintos se descartan. Si Google cambia ese formato o no devuelve el lugar, el análisis devuelve `found: false`. `test/maps-place.test.js` cubre el parser y la suite HTTP comprueba el flujo completo con respuestas simuladas de enlaces móviles.
+
 #### Endpoint `POST /api/analyze-maps-url`
 
 Este endpoint recibe una URL de Google Maps y devuelve, cuando es posible:
