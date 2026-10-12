@@ -142,7 +142,7 @@ function createOfflineNotices() {
 }
 
 // Actualiza los avisos y textos de la interfaz cuando cambia la conexión.
-function updateNetworkStatus() {
+function updateNetworkStatus(event) {
   const offline = !isOnline();
 
   if (networkStatusBanner) {
@@ -156,6 +156,10 @@ function updateNetworkStatus() {
   if (!editingVehicleId) {
     vehicleSubmitButton.textContent = offline ? "Añadir vehículo (requiere internet)" : "Añadir vehículo";
   }
+
+  // Sólo los eventos de conexión deben anunciar cambios; refrescar el formulario
+  // no debe sustituir un error de alta por «Conexión restaurada».
+  if (event?.type !== "online" && event?.type !== "offline") return;
 
   showAppMessage(
     offline ? "Estás sin conexión. Algunas funciones requieren internet." : "Conexión restaurada.",
@@ -1840,7 +1844,7 @@ vehicleForm.addEventListener("submit", async (event) => {
     resetVehicleForm();
     loadVehicles();
   } catch (error) {
-    showAppMessage(error.message, "error");
+    showAppMessage(error.message, "error", { persistent: true });
   } finally {
     vehicleSubmitButton.disabled = false;
     setFormMode(editingVehicleId ? "edit" : "create");
