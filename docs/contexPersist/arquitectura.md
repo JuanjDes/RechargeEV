@@ -224,7 +224,7 @@ El `share_target` permite que la app instalada aparezca como destino al comparti
 
 Define:
 
-- Nombre de caché: `rechargeev-v5`.
+- Nombre de caché: `rechargeev-v6`.
 - App shell con archivos básicos:
   - `index.html`
   - `styles.css`

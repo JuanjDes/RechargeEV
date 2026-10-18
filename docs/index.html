@@ -19,11 +19,24 @@
 
     <section class="top-actions-section" aria-label="Consultas">
       <div class="top-actions">
-        <button id="weatherToggleButton" class="weather-toggle-button" type="button">
-          Meteorología
+        <button id="weatherToggleButton" class="weather-toggle-button" type="button" aria-label="Meteorología" title="Meteorología">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+          </svg>
         </button>
-        <button id="statsToggleButton" class="stats-toggle-button" type="button">
-          Estadísticas
+        <button id="statsToggleButton" class="stats-toggle-button" type="button" aria-label="Estadísticas" title="Estadísticas">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+            <rect x="3" y="13" width="4" height="8" rx="1" />
+            <rect x="10" y="8" width="4" height="13" rx="1" />
+            <rect x="17" y="3" width="4" height="18" rx="1" />
+          </svg>
+        </button>
+        <button id="savedListsToggle" class="saved-lists-toggle-button" type="button" aria-label="Listas guardadas" title="Listas guardadas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <rect x="3" y="3" width="18" height="5" rx="1" />
+            <path d="M5 8v12h14V8M10 12h4" />
+          </svg>
         </button>
       </div>
     </section>
@@ -153,20 +166,15 @@
       <div id="vehicleList" class="vehicle-list" hidden></div>
     </section>
 
-    <section>
-      <h2>
-        <button
-          id="savedListsToggle"
-          class="section-toggle"
-          type="button"
-          aria-expanded="false"
-          aria-controls="savedLists"
-        >
-          <span>Listas guardadas (<span id="savedListsCount">0</span>)</span>
-          <span class="section-toggle-icon" aria-hidden="true">▾</span>
-        </button>
-      </h2>
-      <div id="savedLists" class="saved-lists" hidden></div>
+  </main>
+
+  <main id="savedListsPanel" class="container" aria-labelledby="savedListsTitle" hidden>
+    <section class="saved-lists-panel card">
+      <div class="saved-lists-panel-header">
+        <h1 id="savedListsTitle" tabindex="-1">Listas guardadas (<span id="savedListsCount">0</span>)</h1>
+        <button id="closeSavedListsPanelButton" class="secondary" type="button">← Volver</button>
+      </div>
+      <div id="savedLists" class="saved-lists"></div>
     </section>
   </main>
 

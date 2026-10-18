@@ -28,6 +28,9 @@ const mapContent = document.getElementById("mapContent");
 const vehicleSubmitButton = document.getElementById("vehicleSubmitButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
 const savedListsToggle = document.getElementById("savedListsToggle");
+const savedListsPanel = document.getElementById("savedListsPanel");
+const savedListsTitle = document.getElementById("savedListsTitle");
+const closeSavedListsPanelButton = document.getElementById("closeSavedListsPanelButton");
 const savedLists = document.getElementById("savedLists");
 const savedListsCount = document.getElementById("savedListsCount");
 const weatherToggleButton = document.getElementById("weatherToggleButton");
@@ -1379,10 +1382,13 @@ function closeAppScreen() {
 function syncAppScreen() {
   const showWeather = window.location.hash === "#meteorologia";
   const showStats = window.location.hash === "#estadisticas";
+  const showSavedLists = window.location.hash === "#listas-guardadas";
   const wasWeatherVisible = !weatherPanel.hidden;
   const wasStatsVisible = !statsPanel.hidden;
+  const wereSavedListsVisible = !savedListsPanel.hidden;
 
-  if (showWeather === wasWeatherVisible && showStats === wasStatsVisible) return;
+  if (showWeather === wasWeatherVisible && showStats === wasStatsVisible
+      && showSavedLists === wereSavedListsVisible) return;
 
   if (!homeScreen.hidden) {
     homeScrollPosition = window.scrollY;
@@ -1394,24 +1400,31 @@ function syncAppScreen() {
     weatherResult.removeAttribute("aria-busy");
   }
 
-  homeScreen.hidden = showWeather || showStats;
+  homeScreen.hidden = showWeather || showStats || showSavedLists;
   weatherPanel.hidden = !showWeather;
   statsPanel.hidden = !showStats;
+  savedListsPanel.hidden = !showSavedLists;
+  const activeScreen = showWeather ? weatherPanel : showStats ? statsPanel
+    : showSavedLists ? savedListsPanel : homeScreen;
+  if (appMessage) activeScreen.prepend(appMessage);
 
-  if (showWeather || showStats) {
-    document.title = showWeather ? "Meteorología · RechargeEV" : "Estadísticas · RechargeEV";
-    (showWeather ? weatherTitle : statsTitle).focus({ preventScroll: true });
+  if (showWeather || showStats || showSavedLists) {
+    document.title = showWeather ? "Meteorología · RechargeEV"
+      : showStats ? "Estadísticas · RechargeEV" : "Listas guardadas · RechargeEV";
+    (showWeather ? weatherTitle : showStats ? statsTitle : savedListsTitle).focus({ preventScroll: true });
     window.scrollTo(0, 0);
 
     if (showWeather) {
       showRainForecastPanel();
-    } else {
+    } else if (showStats) {
       updateStatsPeriodButtons();
       renderStats();
+    } else {
+      loadSavedLists();
     }
   } else {
     document.title = HOME_PAGE_TITLE;
-    (wasStatsVisible ? statsToggleButton : weatherToggleButton).focus({ preventScroll: true });
+    (wereSavedListsVisible ? savedListsToggle : wasStatsVisible ? statsToggleButton : weatherToggleButton).focus({ preventScroll: true });
     window.scrollTo(0, homeScrollPosition);
     refreshMapSize();
   }
@@ -2117,10 +2130,11 @@ mapToggle.addEventListener("click", () => {
   }
 });
 
-// Muestra u oculta el histórico de listas guardadas.
+// Abre el histórico en una pantalla independiente.
 savedListsToggle.addEventListener("click", () => {
-  togglePanel(savedListsToggle, savedLists);
+  openAppScreen("#listas-guardadas");
 });
+closeSavedListsPanelButton.addEventListener("click", closeAppScreen);
 
 // Gestiona acciones de restauración y borrado de listas guardadas.
 savedLists.addEventListener("click", (event) => {
@@ -2138,6 +2152,7 @@ savedLists.addEventListener("click", (event) => {
       restoreSavedList(id);
       resetVehicleForm();
       loadVehicles();
+      closeAppScreen();
       return;
     }
 

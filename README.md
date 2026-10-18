@@ -74,7 +74,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 
 ## 🖼️ Vista general
 
-La app está organizada en una pantalla principal y dos vistas independientes: Meteorología y Estadísticas.
+La app está organizada en una pantalla principal y tres vistas independientes: Meteorología, Estadísticas y Listas guardadas. Se accede mediante tres botones circulares con iconos de sol, barras y archivo, alineados a la izquierda.
 
 1. **Botón Meteorología** para abrir una pantalla dedicada a la probabilidad de lluvia del turno de 22:00 a 06:00, con botón **Volver**.
 2. **Botón Estadísticas** para abrir una pantalla dedicada a las cargas por día, semana, mes o año, con botón **Volver**.
@@ -82,7 +82,7 @@ La app está organizada en una pantalla principal y dos vistas independientes: M
 4. **Mapa interactivo** con la posición de los vehículos registrados.
 5. **Listado plegable de vehículos** con matrícula, estado, notas, dirección, CP/localidad, ordenación por cercanía y acciones rápidas.
 6. **Panel de transferencia de listas** para copiar, descargar, pegar o importar una lista de vehículos entre dispositivos.
-7. **Histórico de listas guardadas** con fecha/hora de creación, consulta de vehículos, restauración y borrado.
+7. **Listas guardadas** en su propia pantalla (`#listas-guardadas`), con contador y botón **Volver**. Permite consultar, restaurar y borrar listas. Atrás/Adelante conservan el formulario principal; restaurar una lista regresa a los vehículos.
 8. **Botones grandes** para editar, abrir Maps, marcar estados, guardar listas, compartir/importar listas, borrar un vehículo o borrar todos durante el turno.
 
 ---
@@ -236,7 +236,7 @@ navigator.serviceWorker.register("./service-worker.js")
 El Service Worker crea una caché llamada:
 
 ```text
-rechargeev-v5
+rechargeev-v6
 ```
 
 Y precachea los recursos básicos de la app:
@@ -300,7 +300,7 @@ Después de publicar, conviene revisar en DevTools > **Application**:
 
 - Manifest cargado correctamente.
 - Service Worker registrado y activo.
-- Cache Storage con `rechargeev-v5`.
+- Cache Storage con `rechargeev-v6`.
 - Opción de instalación disponible en el navegador.
 
 Si se publica una nueva versión y el navegador conserva datos antiguos, puede ser útil usar:
@@ -669,7 +669,7 @@ La suite usa el ejecutor integrado de Node.js, DNS/HTTPS simulados y una API loc
 30. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
 31. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 32. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-33. Comprueba que existe la caché `rechargeev-v5` en **Cache Storage**.
+33. Comprueba que existe la caché `rechargeev-v6` en **Cache Storage**.
 34. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
 35. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
 32. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.
