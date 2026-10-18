@@ -36,7 +36,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
   - estimando ida y vuelta desde la base a cada vehículo;
   - sumando 5 minutos por cada cambio de coche;
   - ajustando la velocidad media estimada en km/h.
-- Consultar la probabilidad de lluvia en tu ubicación actual para el turno de 22:00 a 06:00:
+- Consultar la probabilidad de lluvia en tu ubicación actual para el turno en curso (06:00–14:00, 14:00–22:00 o 22:00–06:00), con selector para consultar otro:
   - mediante el botón **Meteorología**;
   - solicitando permiso de ubicación al navegador;
   - mostrando la probabilidad máxima y media del turno;
@@ -77,7 +77,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 
 La app está organizada en una pantalla principal y tres vistas independientes: Meteorología, Estadísticas y Listas guardadas. Se accede mediante tres botones circulares con iconos de nube con lluvia, barras y archivo, alineados a la izquierda.
 
-1. **Botón Meteorología** para abrir una pantalla dedicada a la probabilidad de lluvia del turno de 22:00 a 06:00, con botón **Volver**.
+1. **Botón Meteorología** para abrir una pantalla dedicada a la probabilidad de lluvia del turno actual, con selector de turno y botón **Volver**.
 2. **Botón Estadísticas** para abrir una pantalla dedicada a las cargas por día, semana, mes o año, con botón **Volver**.
 3. **Formulario superior** para registrar un vehículo.
 4. **Mapa interactivo** con la posición de los vehículos registrados.
@@ -237,14 +237,14 @@ navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none"
 El Service Worker crea una caché llamada:
 
 ```text
-rechargeev-v8
+rechargeev-v9
 ```
 
 Y precachea los recursos básicos de la app:
 
 - `index.html`
-- `styles.css?v=8`
-- `app.js?v=8`
+- `styles.css?v=9`
+- `app.js?v=9`
 - `manifest.json`
 - `icons/icon-192.png`
 - `icons/icon-512.png`
@@ -303,7 +303,7 @@ Después de publicar, conviene revisar en DevTools > **Application**:
 
 - Manifest cargado correctamente.
 - Service Worker registrado y activo.
-- Cache Storage con `rechargeev-v8`.
+- Cache Storage con `rechargeev-v9`.
 - Opción de instalación disponible en el navegador.
 
 Después de publicar, abre la app con conexión para que se actualice y vuelve a cargarla o ciérrala y ábrela otra vez. No uses **Clear site data** para actualizar: también borraría los vehículos y listas guardados en `localStorage`.
@@ -405,23 +405,32 @@ Esta ordenación sólo cambia la vista actual: no reescribe el orden guardado en
 
 ## Meteorología del turno
 
-El botón **Meteorología**, situado al principio de la pantalla, abre una vista independiente en `#meteorologia` para consultar la probabilidad de lluvia durante el turno nocturno:
+El botón **Meteorología**, situado al principio de la pantalla, abre una vista independiente en `#meteorologia`. Selecciona automáticamente el turno en curso según la fecha, hora y zona horaria del dispositivo:
 
 ```text
-de 22:00 a 06:00
+Mañana: 06:00–14:00
+Tarde:  14:00–22:00
+Noche:  22:00–06:00 del día siguiente
 ```
 
 Al pulsarlo, la app solicita la ubicación actual mediante la API de geolocalización del navegador y consulta la previsión horaria en **Open-Meteo**. No requiere API key ni configuración adicional.
+
+El selector permite mantener **Automático · turno actual** o elegir Mañana, Tarde o Noche. Una selección manual muestra ese turno si está en curso; si aún no empieza, muestra el próximo, y si ya terminó hoy, el de mañana. Por ejemplo, a las 02:00 el automático muestra la noche que empezó ayer a las 22:00; a las 14:00 cambia a Tarde. Cada entrada a Meteorología restablece Automático. Mientras permanece abierta, el modo automático se actualiza al cambiar de turno y al recuperar el foco de la ventana. La selección no se guarda en localStorage.
 
 La pantalla muestra:
 
 - cabecera centrada con el título **Meteorología**;
 - botón **Volver** debajo de la cabecera;
-- horario del turno debajo del botón;
+- selector de turno y etiqueta **En curso** o **Próximo**, con nombre, fechas y horas;
 - tarjeta resumen con sólo dos datos:
   - **Máxima** probabilidad de lluvia del turno;
   - **Media** de probabilidad de lluvia del turno;
-- desglose por horas entre las 22:00 y las 06:00.
+- desglose por intervalos del turno completo, por ejemplo **06:00–07:00**, incluidas las horas ya transcurridas;
+- aviso de **Datos parciales** si faltan probabilidades para algunas horas; los valores ausentes no se consideran 0 %.
+
+Se solicita también el día anterior para completar el turno nocturno al consultar de madrugada. Se usan timestamps Unix y fechas locales para respetar los cambios de hora: la noche puede tener 7 o 9 horas reales. La probabilidad que devuelve Open-Meteo corresponde a la hora anterior al timestamp; los intervalos mostrados respetan esa definición ([documentación de Open-Meteo](https://open-meteo.com/en/docs)).
+
+Para probarlo, abre Meteorología y comprueba la etiqueta del turno actual; selecciona otro y revisa las fechas. Sal y vuelve a entrar: debe regresar a Automático. Las pruebas automatizadas cubren 06:00, 14:00, 22:00, medianoche, cambios de mes/año y cambios de hora.
 
 La tarjeta de resumen mantiene **Máxima** y **Media** centradas y en una sola línea para facilitar la lectura rápida desde móvil.
 
@@ -684,7 +693,7 @@ La suite usa el ejecutor integrado de Node.js, DNS/HTTPS simulados y una API loc
 30. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
 31. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 32. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-33. Comprueba que existe la caché `rechargeev-v8` en **Cache Storage**.
+33. Comprueba que existe la caché `rechargeev-v9` en **Cache Storage**.
 34. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
 35. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
 32. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.

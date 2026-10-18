@@ -56,7 +56,7 @@ test("la instalación descarga recursos frescos y las mismas versiones de CSS/JS
 
 test("HTML, CSS y JS se revalidan aunque la caché HTTP conserve la versión anterior", async () => {
   const w = worker();
-  for (const asset of ["index.html", "styles.css?v=8", "app.js?v=8"]) {
+  for (const asset of ["index.html", "styles.css?v=9", "app.js?v=9"]) {
     assert.equal(await (await w.request(asset)).text(), "fresh");
   }
   assert.ok(w.calls.every(call => call.options.cache === "no-cache"));
@@ -64,9 +64,9 @@ test("HTML, CSS y JS se revalidan aunque la caché HTTP conserve la versión ant
 
 test("sin red se recuperan los recursos versionados ya cacheados", async () => {
   const w = worker();
-  await w.request("app.js?v=8");
+  await w.request("app.js?v=9");
   w.offline();
-  assert.equal(await (await w.request("app.js?v=8")).text(), "fresh");
+  assert.equal(await (await w.request("app.js?v=9")).text(), "fresh");
   await assert.rejects(w.request("app.js?v=999"), /offline/);
 });
 

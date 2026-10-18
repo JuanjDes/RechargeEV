@@ -9,7 +9,7 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
   <link rel="manifest" href="./manifest.json" />
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body>
   <main id="homeScreen" class="container">
@@ -184,7 +184,17 @@
         <h1 id="weatherTitle" tabindex="-1">Meteorología</h1>
         <button id="closeWeatherPanelButton" class="secondary" type="button">← Volver</button>
       </div>
-      <p class="weather-panel-help">Probabilidad de lluvia de 22:00 a 06:00.</p>
+      <div class="weather-shift-control">
+        <label for="weatherShiftSelect">Turno de trabajo</label>
+        <select id="weatherShiftSelect" aria-describedby="weatherShiftHelp weatherShiftLabel">
+          <option value="auto">Automático · turno actual</option>
+          <option value="morning">Mañana · 06:00–14:00</option>
+          <option value="afternoon">Tarde · 14:00–22:00</option>
+          <option value="night">Noche · 22:00–06:00</option>
+        </select>
+      </div>
+      <p id="weatherShiftHelp" class="weather-panel-help">Usa la hora local del dispositivo. Al elegir otro turno se muestra el que esté en curso o el próximo. El resumen abarca el turno completo.</p>
+      <p id="weatherShiftLabel" class="weather-panel-help" aria-live="polite"></p>
       <div id="weatherResult" class="weather-result" aria-live="polite"></div>
     </section>
   </main>
@@ -211,6 +221,6 @@
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
   ></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

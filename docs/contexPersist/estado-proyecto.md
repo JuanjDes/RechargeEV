@@ -52,7 +52,7 @@ La aplicación permite registrar vehículos pendientes, consultar su ubicación,
 - Importación desde archivo JSON.
 - Estadísticas de vehículos cargados por día, semana, mes o año en una pantalla independiente (`#estadisticas`), con botón Volver y navegación Atrás/Adelante, conservando el formulario al regresar.
 - Registro automático de eventos cuando un vehículo pasa a estado `cargado`.
-- Consulta de probabilidad de lluvia para el turno de 22:00 a 06:00 en una pantalla independiente (`#meteorologia`), con botón Volver y navegación Atrás/Adelante, conservando el formulario al regresar.
+- Consulta de probabilidad de lluvia en una pantalla independiente (`#meteorologia`), con turno actual automático según hora local (06–14, 14–22 o 22–06) y selector manual para el turno en curso o su próxima aparición. Muestra fechas, intervalos horarios, máxima/media del turno completo y aviso de datos parciales. Contempla madrugada, cambios de fecha y horario de verano/invierno. Vuelve a Automático al entrar y actualiza el turno al cambiar de franja o recuperar el foco. Mantiene Volver, navegación Atrás/Adelante y el formulario al regresar.
 - PWA instalable.
 - Service Worker con caché básica y estrategia Network First.
 - Recepción de enlaces compartidos desde Google Maps mediante Web Share Target.

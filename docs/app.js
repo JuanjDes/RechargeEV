@@ -37,6 +37,8 @@ const weatherToggleButton = document.getElementById("weatherToggleButton");
 const weatherPanel = document.getElementById("weatherPanel");
 const closeWeatherPanelButton = document.getElementById("closeWeatherPanelButton");
 const weatherResult = document.getElementById("weatherResult");
+const weatherShiftSelect = document.getElementById("weatherShiftSelect");
+const weatherShiftLabel = document.getElementById("weatherShiftLabel");
 const homeScreen = document.getElementById("homeScreen");
 const weatherTitle = document.getElementById("weatherTitle");
 const HOME_PAGE_TITLE = document.title;
@@ -58,8 +60,11 @@ const MAPS_ANALYSIS_API_URL = ["localhost", "127.0.0.1"].includes(window.locatio
 const WEATHER_FORECAST_API_URL = "https://api.open-meteo.com/v1/forecast";
 const BASE_TRANSFER_EXCHANGE_MINUTES = 5;
 const DEFAULT_AVERAGE_SPEED_KMH = 30;
-const WORK_SHIFT_START_HOUR = 22;
-const WORK_SHIFT_END_HOUR = 6;
+const WORK_SHIFTS = [
+  { id: "morning", name: "Mañana", startHour: 6, endHour: 14 },
+  { id: "afternoon", name: "Tarde", startHour: 14, endHour: 22 },
+  { id: "night", name: "Noche", startHour: 22, endHour: 6 },
+];
 const ALLOWED_STATES = ["pendiente", "cargando", "cargado", "incidencia"];
 const ACTIVATION_KEYS = new Set(["Enter", " "]);
 const STATE_COLORS = {
@@ -88,6 +93,7 @@ let lastUserCoordinates = null;
 let selectedStatsPeriod = "day";
 let areStatsDetailsVisible = false;
 let weatherRequestId = 0;
+let weatherShiftTimer = null;
 let homeScrollPosition = 0;
 const pendingAddressRetries = new Set();
 
@@ -1042,22 +1048,27 @@ function getCurrentUserCoordinates() {
   });
 }
 
-// Calcula el tramo nocturno: si son antes de las 06:00, usa el turno en curso; si no, el próximo.
-function getWorkShiftRange(now = new Date()) {
+// Usa horas de calendario locales, también cuando el turno cruza medianoche o cambia la hora.
+function getWorkShiftRange(now = new Date(), selectedShift = "auto") {
+  const hour = now.getHours();
+  const currentShift = WORK_SHIFTS.find(shift => shift.startHour < shift.endHour
+    ? hour >= shift.startHour && hour < shift.endHour
+    : hour >= shift.startHour || hour < shift.endHour);
+  const shift = WORK_SHIFTS.find(item => item.id === selectedShift) || currentShift;
   const start = new Date(now);
-  const end = new Date(now);
-
-  if (now.getHours() < WORK_SHIFT_END_HOUR) {
+  start.setHours(shift.startHour, 0, 0, 0);
+  if (shift.id === "night" && hour < shift.endHour) {
     start.setDate(start.getDate() - 1);
-    start.setHours(WORK_SHIFT_START_HOUR, 0, 0, 0);
-    end.setHours(WORK_SHIFT_END_HOUR, 0, 0, 0);
-  } else {
-    start.setHours(WORK_SHIFT_START_HOUR, 0, 0, 0);
-    end.setDate(end.getDate() + 1);
-    end.setHours(WORK_SHIFT_END_HOUR, 0, 0, 0);
   }
-
-  return { start, end };
+  const end = new Date(start);
+  if (shift.endHour < shift.startHour) end.setDate(end.getDate() + 1);
+  end.setHours(shift.endHour, 0, 0, 0);
+  // Un turno elegido que ya terminó se consulta para mañana.
+  if (end <= now) {
+    start.setDate(start.getDate() + 1);
+    end.setDate(end.getDate() + 1);
+  }
+  return { start, end, name: shift.name, id: shift.id };
 }
 
 function formatHourLabel(date) {
@@ -1075,18 +1086,6 @@ function formatShiftRangeLabel(start, end) {
   });
 
   return `${dateFormatter.format(start)} ${formatHourLabel(start)} - ${dateFormatter.format(end)} ${formatHourLabel(end)}`;
-}
-
-function parseOpenMeteoLocalDateTime(value) {
-  if (typeof value !== "string") return null;
-
-  const [datePart, timePart] = value.split("T");
-  const [year, month, day] = (datePart || "").split("-").map(Number);
-  const [hour = 0, minute = 0] = (timePart || "").split(":").map(Number);
-
-  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
-
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
 // Devuelve la fecha local en formato YYYY-MM-DD para agrupar cargas por día real de uso.
@@ -1282,7 +1281,9 @@ async function fetchRainForecast(coordinates) {
   url.searchParams.set("longitude", String(coordinates.lng));
   url.searchParams.set("hourly", "precipitation_probability");
   url.searchParams.set("forecast_days", "2");
-  url.searchParams.set("timezone", "auto");
+  url.searchParams.set("past_days", "1");
+  url.searchParams.set("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+  url.searchParams.set("timeformat", "unixtime");
 
   let response;
 
@@ -1306,8 +1307,8 @@ async function fetchRainForecast(coordinates) {
   }
 
   return times.map((time, index) => ({
-    date: parseOpenMeteoLocalDateTime(time),
-    probability: Number(probabilities[index]),
+    date: typeof time === "number" && Number.isFinite(time) ? new Date(time * 1000) : null,
+    probability: typeof probabilities[index] === "number" ? probabilities[index] : NaN,
   }));
 }
 
@@ -1315,13 +1316,14 @@ function calculateRainSummary(hourlyForecast, shiftRange) {
   const shiftHours = hourlyForecast.filter((item) => (
     item.date instanceof Date &&
     !Number.isNaN(item.date.getTime()) &&
-    item.date >= shiftRange.start &&
+    // Open-Meteo da la probabilidad de la hora anterior a cada timestamp.
+    item.date > shiftRange.start &&
     item.date <= shiftRange.end &&
-    Number.isFinite(item.probability)
+    Number.isFinite(item.probability) && item.probability >= 0 && item.probability <= 100
   ));
 
   if (shiftHours.length === 0) {
-    throw new Error("No hay datos disponibles para el tramo de 22:00 a 06:00.");
+    throw new Error("No hay datos de lluvia disponibles para el turno seleccionado.");
   }
 
   const maxProbability = Math.max(...shiftHours.map((item) => item.probability));
@@ -1329,20 +1331,22 @@ function calculateRainSummary(hourlyForecast, shiftRange) {
     shiftHours.reduce((total, item) => total + item.probability, 0) / shiftHours.length
   );
 
-  return { shiftHours, maxProbability, averageProbability };
+  const expectedHours = Math.round((shiftRange.end - shiftRange.start) / 3600000);
+  return { shiftHours, maxProbability, averageProbability, isPartial: shiftHours.length < expectedHours };
 }
 
 function renderRainForecast(summary) {
   const hourlyItemsHtml = summary.shiftHours
     .map((item) => `
       <li>
-        <span>${escapeHtml(formatHourLabel(item.date))}</span>
+        <span>${escapeHtml(formatHourLabel(new Date(item.date.getTime() - 3600000)))}–${escapeHtml(formatHourLabel(item.date))}</span>
         <strong>${escapeHtml(String(Math.round(item.probability)))}%</strong>
       </li>
     `)
     .join("");
 
   weatherResult.innerHTML = `
+    ${summary.isPartial ? '<p class="weather-panel-help">Datos parciales: el resumen incluye solo las horas disponibles.</p>' : ""}
     <div class="weather-summary">
       <p><strong>Máxima:</strong> ${escapeHtml(String(Math.round(summary.maxProbability)))}%</p>
       <p><strong>Media:</strong> ${escapeHtml(String(summary.averageProbability))}%</p>
@@ -1398,6 +1402,7 @@ function syncAppScreen() {
   if (wasWeatherVisible && !showWeather) {
     // Invalida respuestas pendientes al salir de Meteorología.
     weatherRequestId += 1;
+    clearTimeout(weatherShiftTimer);
     weatherResult.removeAttribute("aria-busy");
   }
 
@@ -1416,6 +1421,7 @@ function syncAppScreen() {
     window.scrollTo(0, 0);
 
     if (showWeather) {
+      weatherShiftSelect.value = "auto";
       showRainForecastPanel();
     } else if (showStats) {
       updateStatsPeriodButtons();
@@ -1433,6 +1439,17 @@ function syncAppScreen() {
 
 async function showRainForecastPanel() {
   const requestId = ++weatherRequestId;
+  clearTimeout(weatherShiftTimer);
+  const selectedShift = weatherShiftSelect.value;
+  const now = new Date();
+  const shiftRange = getWorkShiftRange(now, selectedShift);
+  const status = shiftRange.start <= now ? "En curso" : "Próximo";
+  weatherShiftLabel.textContent = `${status} · ${shiftRange.name} · ${formatShiftRangeLabel(shiftRange.start, shiftRange.end)}`;
+  if (selectedShift === "auto") {
+    weatherShiftTimer = setTimeout(() => {
+      if (!weatherPanel.hidden) showRainForecastPanel();
+    }, Math.max(1000, shiftRange.end.getTime() - Date.now()));
+  }
   weatherResult.setAttribute("aria-busy", "true");
   weatherResult.innerHTML = `<p class="empty">Obteniendo ubicación y previsión de lluvia...</p>`;
 
@@ -1440,7 +1457,6 @@ async function showRainForecastPanel() {
     const coordinates = await getCurrentUserCoordinates();
     if (requestId !== weatherRequestId) return;
 
-    const shiftRange = getWorkShiftRange();
     const hourlyForecast = await fetchRainForecast(coordinates);
     if (requestId !== weatherRequestId) return;
 
@@ -1927,6 +1943,8 @@ weatherToggleButton.addEventListener("click", openWeatherScreen);
 
 closeWeatherPanelButton.addEventListener("click", closeAppScreen);
 
+weatherShiftSelect.addEventListener("change", showRainForecastPanel);
+
 statsToggleButton.addEventListener("click", openStatsScreen);
 
 closeStatsPanelButton.addEventListener("click", closeAppScreen);
@@ -2250,6 +2268,9 @@ function initApp() {
   window.addEventListener("offline", updateNetworkStatus);
   window.addEventListener("popstate", syncAppScreen);
   window.addEventListener("hashchange", syncAppScreen);
+  window.addEventListener("focus", () => {
+    if (!weatherPanel.hidden && weatherShiftSelect.value === "auto") showRainForecastPanel();
+  });
   registerServiceWorker();
   syncAppScreen();
 }

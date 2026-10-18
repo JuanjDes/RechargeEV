@@ -226,11 +226,11 @@ El `share_target` permite que la app instalada aparezca como destino al comparti
 
 Define:
 
-- Nombre de caché: `rechargeev-v8`.
+- Nombre de caché: `rechargeev-v9`.
 - App shell con archivos básicos:
   - `index.html`
-  - `styles.css?v=8`
-  - `app.js?v=8`
+  - `styles.css?v=9`
+  - `app.js?v=9`
   - `manifest.json`
   - iconos PWA
 - Evento `install` para precachear recursos con `cache: reload`, evitando copias HTTP anteriores.
@@ -325,7 +325,9 @@ El backend usa Nominatim para convertir coordenadas en información postal legib
 
 ### Open-Meteo
 
-El frontend consulta Open-Meteo directamente para obtener probabilidad de lluvia durante el turno de 22:00 a 06:00.
+El frontend consulta Open-Meteo directamente para obtener probabilidad de lluvia durante el turno actual según el reloj y la zona horaria del dispositivo: Mañana (06–14), Tarde (14–22) o Noche (22–06). `getWorkShiftRange` calcula límites locales de calendario y permite selección manual del turno en curso o su próxima aparición. Cada entrada a Meteorología vuelve a Automático; un temporizador actualiza el turno al llegar a su fin y se cancela al salir o cambiar la selección. Al recuperar el foco se refresca el modo automático. Las respuestas de consultas anteriores se descartan mediante `weatherRequestId`.
+
+La petición usa `forecast_days=2`, `past_days=1`, la zona horaria del dispositivo y `timeformat=unixtime`. Así incluye las horas de ayer del turno nocturno y respeta cambios de hora al convertir timestamps absolutos en fechas locales. `precipitation_probability` corresponde a la hora anterior: el resumen filtra timestamps en `(inicio, fin]` y muestra intervalos horarios. Resume el turno completo; ignora probabilidades nulas o fuera de 0–100 y avisa de cobertura parcial. El selector no cambia la persistencia ni el backend.
 
 ## Modelo de datos conceptual
 
