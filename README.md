@@ -75,7 +75,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 
 ## 🖼️ Vista general
 
-La app está organizada en una pantalla principal y tres vistas independientes: Meteorología, Estadísticas y Listas guardadas. Se accede mediante tres botones circulares con iconos de sol, barras y archivo, alineados a la izquierda.
+La app está organizada en una pantalla principal y tres vistas independientes: Meteorología, Estadísticas y Listas guardadas. Se accede mediante tres botones circulares con iconos de nube con lluvia, barras y archivo, alineados a la izquierda.
 
 1. **Botón Meteorología** para abrir una pantalla dedicada a la probabilidad de lluvia del turno de 22:00 a 06:00, con botón **Volver**.
 2. **Botón Estadísticas** para abrir una pantalla dedicada a las cargas por día, semana, mes o año, con botón **Volver**.

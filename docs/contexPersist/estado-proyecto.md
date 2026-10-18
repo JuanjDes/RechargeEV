@@ -47,7 +47,7 @@ La aplicación permite registrar vehículos pendientes, consultar su ubicación,
 - Estimación de tiempo desde una posición base.
 - Guardado de listas históricas.
 - Restauración y borrado de listas guardadas.
-- Listas guardadas en una pantalla independiente (`#listas-guardadas`), con contador, Volver y navegación Atrás/Adelante. Acceso mediante un botón circular de archivo junto a los de sol y barras; al restaurar una lista se regresa a la pantalla principal.
+- Listas guardadas en una pantalla independiente (`#listas-guardadas`), con contador, Volver y navegación Atrás/Adelante. Acceso mediante un botón circular de archivo junto a los de nube con lluvia y barras; al restaurar una lista se regresa a la pantalla principal.
 - Exportación/importación de listas mediante texto JSON portable.
 - Importación desde archivo JSON.
 - Estadísticas de vehículos cargados por día, semana, mes o año en una pantalla independiente (`#estadisticas`), con botón Volver y navegación Atrás/Adelante, conservando el formulario al regresar.
