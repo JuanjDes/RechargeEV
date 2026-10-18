@@ -793,6 +793,16 @@ button:disabled {
   color: #f9fafb;
 }
 
+.vehicle-card .address-pending {
+  color: #fbbf24;
+}
+
+.retry-address {
+  margin-top: 12px;
+  min-height: 44px;
+  width: 100%;
+}
+
 .vehicle-route-distance {
   color: #bbf7d0;
   font-size: 0.95rem;

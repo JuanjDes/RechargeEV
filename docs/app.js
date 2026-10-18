@@ -89,6 +89,7 @@ let selectedStatsPeriod = "day";
 let areStatsDetailsVisible = false;
 let weatherRequestId = 0;
 let homeScrollPosition = 0;
+const pendingAddressRetries = new Set();
 
 // Comprueba si el navegador considera que hay conexión disponible.
 function isOnline() {
@@ -1509,7 +1510,44 @@ function getVehiclesForCurrentSortMode(vehicles) {
 
 // Comprueba que la dirección tenga al menos un dato útil para mostrar.
 function hasAddressData(address) {
-  return Boolean(address && (address.road || address.postcode || address.displayName));
+  return Boolean(address && [address.road, address.postcode, address.displayName]
+    .some(value => typeof value === "string" && value.trim()));
+}
+
+// Reconsulta sólo la dirección de la posición guardada, sin sobrescribir ediciones simultáneas.
+async function retryVehicleAddress(id) {
+  if (pendingAddressRetries.has(id)) return false;
+  const original = findVehicleById(id);
+  if (!original) throw new Error("Vehículo no encontrado");
+  if (hasAddressData(original.address)) return false;
+  if (!isValidCoordinates(original.coordinates)) {
+    throw new Error("Edita el enlace de Maps para obtener una ubicación válida.");
+  }
+  assertOnlineForMapsAnalysis();
+  pendingAddressRetries.add(id);
+  try {
+    loadVehicles();
+    const { lat, lng } = original.coordinates;
+    // El backend reconoce estas coordenadas sin descargar de nuevo Google Maps.
+    const result = await analyzeMapsUrl(`https://www.google.com/maps?q=${lat},${lng}`);
+    const vehicles = readVehicles();
+    const current = vehicles.find(vehicle => vehicle.id === id);
+    if (!current || current.mapsUrl !== original.mapsUrl || current.createdAt !== original.createdAt
+      || current.coordinates?.lat !== lat || current.coordinates?.lng !== lng) {
+      throw new Error("El vehículo o su ubicación han cambiado. Vuelve a intentarlo si sigue pendiente.");
+    }
+    if (hasAddressData(current.address)) return false;
+    if (!hasAddressData(result.address)) {
+      throw new Error("La dirección sigue pendiente. Vuelve a intentarlo más tarde.");
+    }
+    current.address = result.address;
+    current.updatedAt = new Date().toISOString();
+    writeVehicles(vehicles);
+    return true;
+  } finally {
+    pendingAddressRetries.delete(id);
+    loadVehicles();
+  }
 }
 
 // Formatea la calle/dirección principal para mostrarla en la tarjeta.
@@ -1550,7 +1588,7 @@ function formatPostcodeLocality(address) {
 
 // Crea el bloque HTML de dirección de una tarjeta de vehículo.
 function createVehicleAddressHtml(address) {
-  if (!hasAddressData(address)) return "";
+  if (!hasAddressData(address)) return '<p class="vehicle-address address-pending">Dirección pendiente</p>';
 
   const streetAddress = formatStreetAddress(address);
   const postcodeLocality = formatPostcodeLocality(address);
@@ -1768,6 +1806,12 @@ function renderVehicles(vehicles) {
           </div>
         </div>
       </details>
+      ${!hasAddressData(vehicle.address) ? `
+        <button type="button" class="retry-address" data-id="${escapeHtml(vehicle.id).replace(/"/g, "&quot;")}" data-retry-address="true"
+          aria-label="Reintentar dirección de ${escapeHtml(vehicle.matricula).replace(/"/g, "&quot;")}"
+          ${pendingAddressRetries.has(vehicle.id) ? 'disabled aria-busy="true"' : ""}>
+          ${pendingAddressRetries.has(vehicle.id) ? "Consultando dirección…" : "Reintentar dirección"}
+        </button>` : ""}
     `;
 
     vehicleList.appendChild(card);
@@ -1915,6 +1959,10 @@ vehicleList.addEventListener("click", async (event) => {
   const id = button.dataset.id;
 
   try {
+    if (button.dataset.retryAddress === "true") {
+      if (await retryVehicleAddress(id)) showAppMessage("Dirección actualizada.", "success");
+      return;
+    }
     if (button.dataset.edit === "true") {
       const vehicle = findVehicleById(id);
 

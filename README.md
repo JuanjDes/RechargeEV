@@ -26,6 +26,7 @@ Pensada para ser rápida, clara y cómoda de usar desde móvil, con interfaz osc
 - Ver todos los vehículos registrados.
 - Mostrar u ocultar el listado de vehículos con contador.
 - Ver dirección, CP y localidad en la tarjeta de cada vehículo cuando estén disponibles.
+- Mostrar **Dirección pendiente** cuando no se obtiene una dirección y recuperarla con **Reintentar dirección**, sin volver a añadir el vehículo.
 - Ordenar manualmente los vehículos por cercanía usando tu ubicación actual:
   - primero el vehículo más cercano a tu posición,
   - después el más cercano al vehículo anterior,
@@ -236,14 +237,14 @@ navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none"
 El Service Worker crea una caché llamada:
 
 ```text
-rechargeev-v7
+rechargeev-v8
 ```
 
 Y precachea los recursos básicos de la app:
 
 - `index.html`
-- `styles.css?v=7`
-- `app.js?v=7`
+- `styles.css?v=8`
+- `app.js?v=8`
 - `manifest.json`
 - `icons/icon-192.png`
 - `icons/icon-512.png`
@@ -302,7 +303,7 @@ Después de publicar, conviene revisar en DevTools > **Application**:
 
 - Manifest cargado correctamente.
 - Service Worker registrado y activo.
-- Cache Storage con `rechargeev-v7`.
+- Cache Storage con `rechargeev-v8`.
 - Opción de instalación disponible en el navegador.
 
 Después de publicar, abre la app con conexión para que se actualice y vuelve a cargarla o ciérrala y ábrela otra vez. No uses **Clear site data** para actualizar: también borraría los vehículos y listas guardados en `localStorage`.
@@ -566,6 +567,21 @@ Respuesta cuando encuentra coordenadas:
 
 Esta API sigue redirecciones de URLs cortas de Google Maps, intenta extraer coordenadas tanto de la URL final como del contenido recibido y, si las encuentra, hace geocodificación inversa para devolver datos de dirección. La dirección puede ser parcial o `null` si el servicio externo no devuelve información útil.
 
+### Direcciones pendientes y diagnóstico
+
+Si Nominatim falla o no devuelve una dirección útil, se conserva el vehículo con sus coordenadas y se muestra **Dirección pendiente**. El botón **Reintentar dirección**, visible en la tarjeta, consulta la posición guardada usando el mismo endpoint y sus límites de seguridad. No vuelve a descargar el enlace original de Maps ni modifica matrícula, estado, notas o coordenadas. Durante la consulta queda desactivado; si vuelve a fallar, permite intentarlo más tarde. También sirve para vehículos antiguos sin dirección. Los reintentos son manuales y requieren conexión.
+
+El backend escribe una línea JSON en su salida de errores por cada fallo, identificada por `event: "reverse_geocode_failed"`. Tras desplegar, se puede buscar ese texto en los logs del servicio de Render. Incluye fecha UTC, servicio, `code`, `upstreamStatus` (si se recibió un estado HTTP de error) y `durationMs`. No registra enlaces, coordenadas, matrículas, cuerpos de respuesta ni mensajes externos.
+
+- `TIMEOUT`: se agotó el plazo de consulta.
+- `UPSTREAM_STATUS`: consultar `upstreamStatus` para distinguir, por ejemplo, 403, 429 o 503.
+- `ENOTFOUND` / `EAI_AGAIN`: error de resolución DNS.
+- `INVALID_JSON`: respuesta que no se pudo interpretar como JSON.
+- `NO_ADDRESS`: respuesta sin dirección útil.
+- Otros códigos identifican fallos de conexión o de los límites de seguridad; `UNKNOWN` agrupa los no reconocidos.
+
+Para probarlo, abre una tarjeta sin dirección y pulsa **Reintentar dirección**: debe mostrar la dirección si el servicio responde o mantenerla pendiente con un aviso si falla. Sin conexión, debe avisar sin alterar los datos. Las pruebas automatizadas simulan rechazos HTTP, timeout, respuestas vacías, recuperación y cambios del vehículo durante la consulta.
+
 Los enlaces compartidos que contienen un identificador de lugar (`!1s0x…:0x…`) pero no coordenadas se resuelven mediante el mapa incrustado de ese lugar. `lib/maps-place.js` obtiene el identificador y lee los datos JSON de `initEmbed`, sin ejecutar scripts externos. Sólo acepta las coordenadas del registro cuyo identificador coincide con el solicitado; no utiliza el centro genérico del mapa ni las coordenadas de otro lugar.
 
 ### Protección de las conexiones del backend
@@ -668,7 +684,7 @@ La suite usa el ejecutor integrado de Node.js, DNS/HTTPS simulados y una API loc
 30. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
 31. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 32. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-33. Comprueba que existe la caché `rechargeev-v7` en **Cache Storage**.
+33. Comprueba que existe la caché `rechargeev-v8` en **Cache Storage**.
 34. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
 35. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
 32. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.

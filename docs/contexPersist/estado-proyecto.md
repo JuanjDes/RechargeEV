@@ -35,6 +35,8 @@ La aplicación permite registrar vehículos pendientes, consultar su ubicación,
 - Obtención de coordenadas desde enlaces de Google Maps mediante backend auxiliar.
 - Resolución de enlaces compartidos con identificador de lugar y sin coordenadas explícitas mediante el mapa incrustado de Google, verificando que las coordenadas pertenecen al lugar solicitado.
 - Obtención de dirección postal aproximada mediante geocodificación inversa.
+- Aviso **Dirección pendiente** y botón **Reintentar dirección** en vehículos sin dirección, incluidos los ya guardados. Conserva la posición y los datos del vehículo; evita consultas duplicadas durante la espera.
+- Registro de fallos de Nominatim en logs JSON del backend (`reverse_geocode_failed`) con fecha, causa, estado HTTP y duración, sin datos personales o de ubicación. Pruebas de recuperación, fallo persistente, falta de conexión y ediciones/borrados durante la consulta.
 - Protección de conexiones del backend: dominios/rutas permitidos, validación de cada redirección, bloqueo de IP internas y conexión fijada a una IP pública validada, con límites de tiempo y descarga para Maps y Nominatim.
 - Limitación de abuso en el endpoint de Maps: 20 peticiones por IP/red IPv6 y 60 globales por minuto y proceso, con respuesta 429 y tiempo de espera. Contadores en memoria; configuración de proxies documentada para verificar al desplegar en Render.
 - CORS restringido a orígenes explícitos de Pages/Render, configurable mediante `CORS_ALLOWED_ORIGINS`, con desarrollo local separado. Errores de API uniformes en JSON sin detalles internos y mensajes legibles ante respuestas incompletas del servidor.

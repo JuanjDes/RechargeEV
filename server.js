@@ -80,6 +80,7 @@ function buildAddressPayload(nominatimResult) {
 
 async function reverseGeocodeCoordinates(coordinates, signal) {
   if (!coordinates) return null;
+  const startedAt = Date.now();
 
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "jsonv2");
@@ -90,8 +91,25 @@ async function reverseGeocodeCoordinates(coordinates, signal) {
 
   try {
     const result = await outbound.getNominatimJson(url.href, { signal });
-    return buildAddressPayload(result);
-  } catch {
+    const address = buildAddressPayload(result);
+    if (result?.error || ![address.road, address.postcode, address.displayName]
+      .some(value => typeof value === "string" && value.trim())) {
+      throw new OutboundError("NO_ADDRESS", "No se obtuvo una dirección útil");
+    }
+    return address;
+  } catch (error) {
+    // Sólo metadatos de diagnóstico: nunca URLs, coordenadas ni mensajes externos.
+    const knownCodes = new Set(["TIMEOUT", "UPSTREAM_STATUS", "NO_ADDRESS", "BLOCKED_ADDRESS",
+      "REDIRECT_BLOCKED", "ENCODING", "TOO_LARGE", "TRUNCATED", "ENOTFOUND", "EAI_AGAIN",
+      "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ENETUNREACH", "EHOSTUNREACH"]);
+    console.warn(JSON.stringify({
+      event: "reverse_geocode_failed",
+      service: "nominatim",
+      timestamp: new Date().toISOString(),
+      code: knownCodes.has(error?.code) ? error.code : error instanceof SyntaxError ? "INVALID_JSON" : "UNKNOWN",
+      upstreamStatus: Number.isInteger(error?.upstreamStatus) ? error.upstreamStatus : null,
+      durationMs: Date.now() - startedAt,
+    }));
     return null;
   }
 }

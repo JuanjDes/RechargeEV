@@ -222,14 +222,14 @@ test("Nominatim tiene política, límites y prohibición de redirección propios
   assert.equal(stalled.responses[0].destroyed, true);
 });
 
-async function startTestApi(client, t) {
+async function startTestApi(client, t, logs = []) {
   const filename = path.resolve(__dirname, "../server.js");
   const realRequire = createRequire(filename);
   const moduleObject = { exports: {} };
-  const loadServer = new Function("require", "module", "__dirname", readFileSync(filename, "utf8"));
+  const loadServer = new Function("require", "module", "__dirname", "console", readFileSync(filename, "utf8"));
   loadServer(
     (name) => name === "./lib/safe-http" ? { ...safe, createSafeHttpClient: () => client } : realRequire(name),
-    moduleObject, path.dirname(filename)
+    moduleObject, path.dirname(filename), { warn: line => logs.push(JSON.parse(line)) }
   );
   const server = moduleObject.exports.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
@@ -241,6 +241,54 @@ async function startTestApi(client, t) {
   post.endpoint = endpoint;
   return post;
 }
+
+test("fallos de Nominatim conservan coordenadas y registran HTTP, JSON inválido y ausencia de dirección", async (t) => {
+  const logs = [];
+  const f = fixture([
+    { status: 429 }, { status: 403 }, { status: 503 },
+    { body: "private-value invalid json" }, { body: '{"error":"private-value"}' },
+    { body: '{}' }, { body: '{"display_name":"   "}' },
+    { body: '{"address":{"road":"Recuperada"}}' },
+  ]);
+  const post = await startTestApi(f.client, t, logs);
+  const url = "https://www.google.com/maps?q=40.4168,-3.7038";
+  for (const [code, status] of [["UPSTREAM_STATUS", 429], ["UPSTREAM_STATUS", 403], ["UPSTREAM_STATUS", 503],
+    ["INVALID_JSON", null], ["NO_ADDRESS", null], ["NO_ADDRESS", null], ["NO_ADDRESS", null]]) {
+    const response = await post(url);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.found, true);
+    assert.equal(body.address, null);
+    assert.deepEqual(body.coordinates, { lat: 40.4168, lng: -3.7038 });
+    const log = logs.at(-1);
+    assert.equal(log.event, "reverse_geocode_failed");
+    assert.equal(log.service, "nominatim");
+    assert.equal(log.code, code);
+    assert.equal(log.upstreamStatus, status);
+    assert.ok(log.durationMs >= 0);
+    assert.ok(Number.isFinite(Date.parse(log.timestamp)));
+  }
+  assert.equal((await (await post(url)).json()).address.road, "Recuperada");
+  assert.equal(logs.length, 7);
+  assert.doesNotMatch(JSON.stringify(logs), /private-value|40\.4168|-3\.7038|https:|stack/);
+  assert.ok(f.calls.every(call => call.url.startsWith("https://nominatim.openstreetmap.org/reverse?")));
+});
+
+test("registro distingue timeout y DNS sin exponer mensajes ni códigos desconocidos", async (t) => {
+  const logs = [];
+  const errors = [new safe.OutboundError("TIMEOUT", "private-value"),
+    Object.assign(new Error("private-value"), { code: "EAI_AGAIN" }),
+    Object.assign(new Error("private-value"), { code: "private-value" })];
+  const post = await startTestApi({
+    getMapsPage: async url => ({ finalUrl: url }),
+    getNominatimJson: async () => { throw errors.shift(); },
+  }, t, logs);
+  for (const code of ["TIMEOUT", "EAI_AGAIN", "UNKNOWN"]) {
+    assert.equal((await (await post("https://www.google.com/maps?q=40,-3")).json()).address, null);
+    assert.equal(logs.at(-1).code, code);
+  }
+  assert.doesNotMatch(JSON.stringify(logs), /private-value/);
+});
 
 test("API conserva coordenadas y dirección opcional, y rechaza URLs inválidas", async (t) => {
   const f = fixture([

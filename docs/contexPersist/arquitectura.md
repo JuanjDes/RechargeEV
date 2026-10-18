@@ -13,6 +13,8 @@ La arquitectura está pensada para ser ligera, fácil de mantener y usable desde
 - Mapa interactivo con Leaflet y OpenStreetMap.
 - Consulta meteorológica con Open-Meteo.
 - Geocodificación inversa con Nominatim/OpenStreetMap desde el backend.
+- Diagnóstico de fallos de geocodificación con logs JSON `reverse_geocode_failed`: fecha, código, estado HTTP externo y duración, sin datos de ubicación ni mensajes externos. Las respuestas vacías se consideran dirección pendiente.
+- Reintento manual desde la tarjeta de un vehículo sin dirección: usa sus coordenadas en una URL de Maps admitida por el endpoint existente (sin descarga de Google), conserva los demás datos y descarta la respuesta si el vehículo se elimina o cambia de ubicación. Un conjunto en memoria bloquea reintentos duplicados por vehículo; no hay reintentos automáticos ni nuevo almacenamiento.
 
 No utiliza frameworks de frontend ni base de datos externa.
 
@@ -224,11 +226,11 @@ El `share_target` permite que la app instalada aparezca como destino al comparti
 
 Define:
 
-- Nombre de caché: `rechargeev-v7`.
+- Nombre de caché: `rechargeev-v8`.
 - App shell con archivos básicos:
   - `index.html`
-  - `styles.css?v=7`
-  - `app.js?v=7`
+  - `styles.css?v=8`
+  - `app.js?v=8`
   - `manifest.json`
   - iconos PWA
 - Evento `install` para precachear recursos con `cache: reload`, evitando copias HTTP anteriores.
