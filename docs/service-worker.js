@@ -1,13 +1,13 @@
 // Nombre de la caché actual de la aplicación.
 // Al cambiar esta versión, el bloque de activación eliminará cachés antiguas.
-const CACHE_NAME = 'rechargeev-v6';
+const CACHE_NAME = 'rechargeev-v7';
 
 // Recursos básicos necesarios para que RechargeEV pueda abrirse sin conexión.
 // Se usan rutas relativas para mantener compatibilidad con GitHub Pages.
 const APP_SHELL = [
   './index.html',
-  './styles.css',
-  './app.js',
+  './styles.css?v=7',
+  './app.js?v=7',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
@@ -19,7 +19,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      // La instalación debe descargar la versión actual, no reutilizar HTTP caché.
+      .then((cache) => cache.addAll(APP_SHELL.map((url) => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
 });
@@ -57,7 +58,9 @@ self.addEventListener('fetch', (event) => {
 // en caché. Si la red falla, devuelve la versión almacenada en caché si existe.
 async function networkFirst(request) {
   try {
-    const networkResponse = await fetch(request);
+    // Revalida los recursos propios aunque el hosting envíe max-age.
+    const sameOrigin = new URL(request.url).origin === self.location.origin;
+    const networkResponse = await fetch(request, sameOrigin ? { cache: 'no-cache' } : {});
 
     if (networkResponse && networkResponse.ok) {
       const cache = await caches.open(CACHE_NAME);

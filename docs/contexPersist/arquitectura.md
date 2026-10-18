@@ -224,16 +224,16 @@ El `share_target` permite que la app instalada aparezca como destino al comparti
 
 Define:
 
-- Nombre de caché: `rechargeev-v6`.
+- Nombre de caché: `rechargeev-v7`.
 - App shell con archivos básicos:
   - `index.html`
-  - `styles.css`
-  - `app.js`
+  - `styles.css?v=7`
+  - `app.js?v=7`
   - `manifest.json`
   - iconos PWA
-- Evento `install` para precachear recursos.
+- Evento `install` para precachear recursos con `cache: reload`, evitando copias HTTP anteriores.
 - Evento `activate` para borrar cachés antiguas.
-- Evento `fetch` para aplicar estrategia Network First en peticiones GET.
+- Evento `fetch` para aplicar estrategia Network First en peticiones GET y revalidar recursos del mismo origen con `cache: no-cache`. Las versiones de CSS/JS deben coincidir en el HTML y en el precache.
 
 ## Flujo de datos principal
 

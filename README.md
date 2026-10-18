@@ -226,7 +226,7 @@ La app revisa los campos compartidos `url`, `text` y `title`, ya que Google Maps
 `app.js` registra el Service Worker con ruta relativa compatible con GitHub Pages:
 
 ```js
-navigator.serviceWorker.register("./service-worker.js")
+navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none" })
 ```
 
 ---
@@ -236,14 +236,14 @@ navigator.serviceWorker.register("./service-worker.js")
 El Service Worker crea una caché llamada:
 
 ```text
-rechargeev-v6
+rechargeev-v7
 ```
 
 Y precachea los recursos básicos de la app:
 
 - `index.html`
-- `styles.css`
-- `app.js`
+- `styles.css?v=7`
+- `app.js?v=7`
 - `manifest.json`
 - `icons/icon-192.png`
 - `icons/icon-512.png`
@@ -255,6 +255,8 @@ La estrategia de red es **Network First**:
 3. Si la red falla, devuelve la copia cacheada cuando exista.
 
 El Service Worker sólo gestiona peticiones `GET`. Las peticiones `POST`, `PUT`, `PATCH` o `DELETE` no se cachean.
+
+CSS y JavaScript llevan la misma versión en sus URLs tanto en `index.html` como en el precache. La instalación usa `cache: "reload"` y las peticiones a recursos del mismo origen usan `cache: "no-cache"` para revalidar versiones aunque GitHub Pages envíe `max-age`. Al publicar cambios de estos recursos, incrementa conjuntamente la versión de sus URLs y de la caché. Así se evita reutilizar CSS/JS antiguos con una página nueva.
 
 ### Limitaciones offline
 
@@ -300,13 +302,10 @@ Después de publicar, conviene revisar en DevTools > **Application**:
 
 - Manifest cargado correctamente.
 - Service Worker registrado y activo.
-- Cache Storage con `rechargeev-v6`.
+- Cache Storage con `rechargeev-v7`.
 - Opción de instalación disponible en el navegador.
 
-Si se publica una nueva versión y el navegador conserva datos antiguos, puede ser útil usar:
-
-- **Unregister Service Worker**
-- **Clear site data**
+Después de publicar, abre la app con conexión para que se actualice y vuelve a cargarla o ciérrala y ábrela otra vez. No uses **Clear site data** para actualizar: también borraría los vehículos y listas guardados en `localStorage`.
 
 ---
 
@@ -669,7 +668,7 @@ La suite usa el ejecutor integrado de Node.js, DNS/HTTPS simulados y una API loc
 30. Usa **Borrar Todos**, confirma la acción y comprueba que se vacía el listado.
 31. Recarga la página y verifica que los datos siguen apareciendo desde `localStorage` cuando no se han borrado.
 32. Abre DevTools > **Application** y comprueba que el manifiesto y el Service Worker se cargan correctamente.
-33. Comprueba que existe la caché `rechargeev-v6` en **Cache Storage**.
+33. Comprueba que existe la caché `rechargeev-v7` en **Cache Storage**.
 34. Activa modo offline, recarga la app y verifica que la interfaz básica sigue cargando.
 35. En modo offline, intenta añadir un vehículo y comprueba que aparece un mensaje visible indicando que se necesita internet para analizar enlaces de Google Maps.
 32. Abre el mapa en modo offline y verifica que aparece el aviso de mapa limitado sin conexión.

@@ -195,12 +195,18 @@ h2 {
 .weather-toggle-button,
 .stats-toggle-button,
 .saved-lists-toggle-button {
+  -webkit-appearance: none;
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 52px;
   width: 52px;
+  min-width: 52px;
+  max-width: 52px;
   height: 52px;
+  min-height: 52px;
+  max-height: 52px;
   border: 1px solid #38bdf8;
   border-radius: 50%;
   padding: 0;
@@ -210,6 +216,8 @@ h2 {
 }
 
 .top-actions svg {
+  display: block;
+  flex-shrink: 0;
   width: 26px;
   height: 26px;
 }
